@@ -42,7 +42,7 @@ def define_ec2_admin(app):
         static_folder="assets",
     )
 
-    @admin_ec2_config.route("/admin/plugins/ec2_config", methods=["GET", "POST"])
+    @admin_ec2_config.route("/admin/ec2_config", methods=["GET", "POST"])
     # @admins_only  # Temporarily disabled for debugging
     def ec2_config_admin():
         print(f"DEBUG: EC2 config admin route hit - Method: {request.method}")

@@ -60,7 +60,7 @@ def define_ec2_admin(app):
             ec2.default_instance_type = request.form["default_instance_type"]
             ec2.default_security_group = request.form["default_security_group"]
             ec2.default_key_name = request.form["default_key_name"]
-            ec2.default_subnet_id = request.form["default_subnet_id"]
+            # ec2.default_subnet_id = request.form["default_subnet_id"]  # Temporarily disabled
             ec2.max_instance_time = int(request.form["max_instance_time"])
             ec2.auto_stop_enabled = request.form.get("auto_stop_enabled") == "on"
 

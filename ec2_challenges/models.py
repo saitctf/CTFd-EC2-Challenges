@@ -18,7 +18,7 @@ class EC2Config(db.Model):
     default_instance_type = db.Column("default_instance_type", db.String(32))
     default_security_group = db.Column("default_security_group", db.String(128))
     default_key_name = db.Column("default_key_name", db.String(128))
-    default_subnet_id = db.Column("default_subnet_id", db.String(128))
+    # default_subnet_id = db.Column("default_subnet_id", db.String(128))  # Temporarily disabled
     
     # Challenge Configuration
     max_instance_time = db.Column("max_instance_time", db.Integer, default=1800)  # 30 minutes

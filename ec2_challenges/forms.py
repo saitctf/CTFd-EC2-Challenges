@@ -52,11 +52,11 @@ class EC2ConfigForm(FlaskForm):
         description="Default EC2 instance type for challenges"
     )
     
-    default_subnet_id = StringField(
-        "Default Subnet ID",
-        validators=[DataRequired()],
-        description="Default subnet ID for EC2 instances"
-    )
+    # default_subnet_id = StringField(
+    #     "Default Subnet ID",
+    #     validators=[DataRequired()],
+    #     description="Default subnet ID for EC2 instances"
+    # )
     
     default_security_group = StringField(
         "Default Security Group",

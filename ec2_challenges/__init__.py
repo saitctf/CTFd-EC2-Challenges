@@ -9,9 +9,8 @@ from flask_restx import Namespace, Resource
 from flask import request, render_template, Blueprint, abort
 
 from CTFd.plugins.challenges import BaseChallenge
-from CTFd.utils.user import get_current_user, get_current_team, is_admin
+from CTFd.utils.user import get_current_user, get_current_team, is_admin, get_ip
 from CTFd.utils.uploads import delete_file
-from CTFd.utils import get_ip
 from CTFd.utils.dates import unix_time
 from CTFd.utils.decorators import authed_only, admins_only
 from CTFd.utils.decorators.visibility import check_challenge_visibility
@@ -508,7 +507,7 @@ class EC2ChallengeType(BaseChallenge):
             user_id=user.id,
             team_id=team.id if team else None,
             challenge_id=challenge.id,
-            ip=get_ip(request),
+            ip=get_ip(req=request),
             provided=submission,
         )
         db.session.add(wrong)

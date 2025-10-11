@@ -25,10 +25,77 @@ from CTFd.models import (
     Tags,
     Hints,
     Flags,
+    Users,
 )
 
 from .models import EC2Config, EC2ChallengeTracker, EC2Challenge, EC2History
 from .forms import EC2ConfigForm
+
+
+def define_ec2_admin(app):
+    """Define EC2 admin configuration routes"""
+    admin_ec2_config = Blueprint(
+        "admin_ec2_config",
+        __name__,
+        template_folder="templates",
+        static_folder="assets",
+    )
+
+    @admin_ec2_config.route("/admin/ec2_config", methods=["GET", "POST"])
+    @admins_only
+    def ec2_config():
+        ec2 = EC2Config.query.filter_by(id=1).first()
+        form = EC2ConfigForm()
+
+        # If no EC2 config exists, create one
+        if ec2 is None:
+            ec2 = EC2Config(id=1)
+            db.session.add(ec2)
+            db.session.commit()
+
+        if request.method == "POST":
+            ec2.aws_access_key_id = request.form["aws_access_key_id"] or None
+            ec2.aws_secret_access_key = request.form["aws_secret_access_key"] or None
+            ec2.region = request.form["region"]
+            ec2.default_instance_type = request.form["default_instance_type"]
+            ec2.default_security_group = request.form["default_security_group"]
+            ec2.default_key_name = request.form["default_key_name"]
+            ec2.default_subnet_id = request.form["default_subnet_id"]
+            ec2.max_instance_time = int(request.form["max_instance_time"])
+            ec2.auto_stop_enabled = request.form.get("auto_stop_enabled") == "on"
+
+            db.session.add(ec2)
+            db.session.commit()
+            ec2 = EC2Config.query.filter_by(id=1).first()
+
+        return render_template("admin_ec2_config.html", form=form, ec2_config=ec2)
+
+    app.register_blueprint(admin_ec2_config)
+
+
+def define_ec2_status(app):
+    """Define EC2 admin status routes"""
+    admin_ec2_status = Blueprint(
+        "admin_ec2_status",
+        __name__,
+        template_folder="templates",
+        static_folder="assets",
+    )
+
+    @admin_ec2_status.route("/admin/ec2_status", methods=["GET", "POST"])
+    @admins_only
+    def ec2_admin():
+        ec2_tasks = EC2ChallengeTracker.query.all()
+        id_name_map = {}
+        for i in ec2_tasks:
+            name = Users.query.filter_by(id=i.owner_id).first()
+            id_name_map[i.owner_id] = name.name if name else "[User Removed]"
+        return render_template(
+            "admin_ec2_status.html", tasks=ec2_tasks, id_name_map=id_name_map
+        )
+
+    app.register_blueprint(admin_ec2_status)
+
 
 def load(app):
     upgrade(plugin_name="ec2_challenges")
@@ -39,6 +106,10 @@ def load(app):
     
     # Register assets
     register_plugin_assets_directory(app, base_path="/plugins/ec2_challenges/assets")
+    
+    # Register admin routes
+    define_ec2_admin(app)
+    define_ec2_status(app)
     
     # Register API namespaces
     CTFd_API_v1.add_namespace(instance_namespace, "/instance")

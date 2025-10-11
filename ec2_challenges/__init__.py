@@ -34,6 +34,7 @@ from .forms import EC2ConfigForm
 
 def define_ec2_admin(app):
     """Define EC2 admin configuration routes"""
+    print("DEBUG: Registering EC2 admin blueprint")
     admin_ec2_config = Blueprint(
         "admin_ec2_config",
         __name__,
@@ -41,10 +42,19 @@ def define_ec2_admin(app):
         static_folder="assets",
     )
 
-    @admin_ec2_config.route("/admin/ec2_config", methods=["GET", "POST"])
-    @admins_only
+    @admin_ec2_config.route("/admin/plugins/ec2_config", methods=["GET", "POST"])
+    # @admins_only  # Temporarily disabled for debugging
     def ec2_config_admin():
         print(f"DEBUG: EC2 config admin route hit - Method: {request.method}")
+        print(f"DEBUG: Request URL: {request.url}")
+        print(f"DEBUG: Request headers: {dict(request.headers)}")
+        
+        # Manual admin check
+        if not is_admin():
+            print("DEBUG: User is not admin, returning 403")
+            abort(403)
+        
+        print("DEBUG: User is admin, proceeding")
         ec2 = EC2Config.query.filter_by(id=1).first()
         # form = EC2ConfigForm()  # Temporarily disabled
 
@@ -56,6 +66,7 @@ def define_ec2_admin(app):
 
         if request.method == "POST":
             print("DEBUG: Processing POST request")
+            print(f"DEBUG: Form data: {dict(request.form)}")
             try:
                 ec2.aws_access_key_id = request.form.get("aws_access_key_id") or None
                 ec2.aws_secret_access_key = request.form.get("aws_secret_access_key") or None
@@ -93,6 +104,7 @@ def define_ec2_admin(app):
         form = type('Form', (), {})()
         return render_template("admin_ec2_config.html", form=form, ec2_config=ec2)
 
+    print("DEBUG: Registering EC2 admin blueprint with app")
     app.register_blueprint(admin_ec2_config)
 
 
@@ -121,6 +133,7 @@ def define_ec2_status(app):
 
 
 def load(app):
+    print("DEBUG: Loading EC2 plugin")
     upgrade(plugin_name="ec2_challenges")
     
     # Register the EC2 challenge type
@@ -131,6 +144,7 @@ def load(app):
     register_plugin_assets_directory(app, base_path="/plugins/ec2_challenges/assets")
     
     # Register admin routes
+    print("DEBUG: Defining EC2 admin routes")
     define_ec2_admin(app)
     define_ec2_status(app)
     
@@ -139,6 +153,8 @@ def load(app):
     CTFd_API_v1.add_namespace(instance_status_namespace, "/instance_status")
     CTFd_API_v1.add_namespace(active_ec2_namespace, "/ec2")
     CTFd_API_v1.add_namespace(ec2_config_namespace, "/ec2_config")
+    
+    print("DEBUG: EC2 plugin loaded successfully")
     
     # Initialize EC2 configuration from environment variables
     try:

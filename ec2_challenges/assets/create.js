@@ -1,86 +1,35 @@
-// EC2 Challenge Creation JavaScript
-
-// Load available AMIs, subnets, and security groups when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    loadAvailableAMIs();
-    loadAvailableSubnets();
-    loadAvailableSecurityGroups();
+CTFd.plugin.run((_CTFd) => {
+    const $ = _CTFd.lib.$
+    const md = _CTFd.lib.markdown()
+    
+    $(document).ready(function () {
+        // Load available AMIs, subnets, and security groups
+        $.getJSON("/api/v1/ec2_config", function (result) {
+            if (result.success) {
+                // Load AMIs
+                $.each(result['data']['amis'], function (i, item) {
+                    $("#ami_id_select").append($("<option />").val(item['value']).text(item['name'] + ` (${item['value']})`));
+                });
+                
+                // Load Subnets
+                $.each(result['data']['subnets'], function (i, item) {
+                    $("#subnet_id_select").append($("<option />").val(item['value']).text(item['value'] + (item['name'] ? ` [${item['name']}]` : "")));
+                });
+                
+                // Load Security Groups
+                $.each(result['data']['security_groups'], function (i, item) {
+                    $("#security_group_select").append($("<option />").val(item['value']).text(item['value'] + (item['name'] ? ` [${item['name']}]` : "")));
+                });
+            } else {
+                console.error('Failed to load EC2 configuration:', result);
+                showError('Failed to load EC2 configuration. Please check your AWS settings.');
+            }
+        }).fail(function() {
+            console.error('Error loading EC2 configuration');
+            showError('Error loading EC2 configuration. Please check your AWS settings.');
+        });
+    });
 });
-
-function loadAvailableAMIs() {
-    fetch('/api/v1/ec2_config')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.data.available_amis) {
-                const select = document.getElementById('ami_id_select');
-                select.innerHTML = '<option value="">Select an AMI...</option>';
-                
-                data.data.available_amis.forEach(ami => {
-                    const option = document.createElement('option');
-                    option.value = ami.id;
-                    option.textContent = `${ami.name} (${ami.id}) - ${ami.architecture}`;
-                    select.appendChild(option);
-                });
-            } else {
-                console.error('Failed to load available AMIs:', data);
-                showError('Failed to load available AMIs. Please check your AWS configuration.');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading AMIs:', error);
-            showError('Error loading available AMIs. Please check your AWS configuration.');
-        });
-}
-
-function loadAvailableSubnets() {
-    fetch('/api/v1/ec2_config')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.data.available_subnets) {
-                const select = document.getElementById('subnet_id_select');
-                select.innerHTML = '<option value="">Select a subnet...</option>';
-                
-                data.data.available_subnets.forEach(subnet => {
-                    const option = document.createElement('option');
-                    option.value = subnet.id;
-                    option.textContent = `${subnet.id} (${subnet.availability_zone}) - ${subnet.cidr_block}`;
-                    select.appendChild(option);
-                });
-            } else {
-                console.error('Failed to load available subnets:', data);
-                showError('Failed to load available subnets. Please check your AWS configuration.');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading subnets:', error);
-            showError('Error loading available subnets. Please check your AWS configuration.');
-        });
-}
-
-function loadAvailableSecurityGroups() {
-    fetch('/api/v1/ec2_config')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.data.available_security_groups) {
-                const select = document.getElementById('security_group_select');
-                select.innerHTML = '<option value="">Select a security group...</option>';
-                
-                data.data.available_security_groups.forEach(sg => {
-                    const option = document.createElement('option');
-                    option.value = sg.id;
-                    option.textContent = `${sg.name} (${sg.id}) - ${sg.description || 'No description'}`;
-                    select.appendChild(option);
-                });
-            } else {
-                console.error('Failed to load available security groups:', data);
-                showError('Failed to load available security groups. Please check your AWS configuration.');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading security groups:', error);
-            showError('Error loading available security groups. Please check your AWS configuration.');
-        });
-}
 
 function showError(message) {
     const container = document.querySelector('.form-group');

@@ -893,12 +893,19 @@ class EC2ConfigAPI(Resource):
         return {
             "success": True,
             "data": {
-                "region": ec2_config.region,
-                "aws_access_key_id": ec2_config.aws_access_key_id,
-                "aws_secret_access_key": ec2_config.aws_secret_access_key,
-                "available_amis": get_available_amis(ec2_config),
-                "available_subnets": get_available_subnets(ec2_config),
-                "available_security_groups": get_available_security_groups(ec2_config),
+                "subnets": [
+                    {"value": subnet["id"], "name": subnet.get("name", subnet["id"])}
+                    for subnet in get_available_subnets(ec2_config)
+                ],
+                "security_groups": [
+                    {"value": sg["id"], "name": sg["name"]}
+                    for sg in get_available_security_groups(ec2_config)
+                ],
+                "amis": [
+                    {"value": ami["id"], "name": ami["name"]}
+                    for ami in get_available_amis(ec2_config)
+                    if not ami.get("error")  # Filter out error objects
+                ]
             }
         }
 

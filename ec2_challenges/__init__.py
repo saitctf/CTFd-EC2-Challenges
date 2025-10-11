@@ -5,18 +5,18 @@ import hashlib
 import random
 import string
 from datetime import datetime
-from CTFd.plugins.challenges import BaseChallenge
-from CTFd.plugins.flags import Flags
-from CTFd.utils.user import get_current_user, get_current_team, is_admin
-from CTFd.utils.uploads import delete_file
-from CTFd.utils import user as user_utils
-from CTFd.utils import config
-from CTFd.api import CTFd_API_v1
-from CTFd.api.v1.scoreboard import ScoreboardDetail
-from CTFd.utils.scores import get_standings
-from CTFd.api.v1.challenges import ChallengeList, Challenge
 from flask_restx import Namespace, Resource
 from flask import request, render_template, Blueprint, abort
+
+from CTFd.plugins.challenges import BaseChallenge
+from CTFd.utils.user import get_current_user, get_current_team, is_admin
+from CTFd.utils.uploads import delete_file
+from CTFd.utils import get_ip
+from CTFd.utils.dates import unix_time
+from CTFd.utils.decorators import authed_only, admins_only
+from CTFd.utils.decorators.visibility import check_challenge_visibility
+from CTFd.plugins import register_plugin_assets_directory
+from CTFd.api import CTFd_API_v1
 from CTFd.models import (
     db,
     Challenges,
@@ -25,26 +25,27 @@ from CTFd.models import (
     ChallengeFiles,
     Tags,
     Hints,
+    Flags,
 )
-from CTFd.utils.decorators import authed_only, admins_only
-from CTFd.utils.decorators.visibility import check_challenge_visibility
-from CTFd.utils.user import get_current_user
-from CTFd.utils.user import get_current_team
-from CTFd.utils.user import is_admin
-from CTFd.utils.config import get_config
-from CTFd.utils import get_ip
-from flask import request
-from CTFd.utils.dates import unix_time
-from CTFd.plugins import register_plugin_assets_directory
-from CTFd.forms import BaseForm
-from CTFd.forms.fields import SubmitField
-from CTFd.utils.config import get_config
 
 from .models import EC2Config, EC2ChallengeTracker, EC2Challenge, EC2History
 from .forms import EC2ConfigForm
 
 def load(app):
     upgrade(plugin_name="ec2_challenges")
+    
+    # Register the EC2 challenge type
+    from CTFd.plugins.challenges import CHALLENGE_CLASSES
+    CHALLENGE_CLASSES["ec2"] = EC2ChallengeType
+    
+    # Register assets
+    register_plugin_assets_directory(app, base_path="/plugins/ec2_challenges/assets")
+    
+    # Register API namespaces
+    CTFd_API_v1.add_namespace(instance_namespace, "/instance")
+    CTFd_API_v1.add_namespace(instance_status_namespace, "/instance_status")
+    CTFd_API_v1.add_namespace(active_ec2_namespace, "/ec2")
+    CTFd_API_v1.add_namespace(ec2_config_namespace, "/ec2_config")
 
 
 def upgrade(plugin_name):
@@ -729,16 +730,3 @@ class EC2ConfigStatusAPI(Resource):
         }
 
 
-def load(app):
-    upgrade(plugin_name="ec2_challenges")
-    
-    # Register API namespaces
-    CTFd_API_v1.add_namespace(instance_namespace, "/instance")
-    CTFd_API_v1.add_namespace(instance_status_namespace, "/instance_status")
-    CTFd_API_v1.add_namespace(active_ec2_namespace, "/ec2")
-    CTFd_API_v1.add_namespace(ec2_config_namespace, "/ec2_config")
-    
-    # Register assets
-    register_plugin_assets_directory(
-        app, base_path="/plugins/ec2_challenges/assets/"
-    )

@@ -8,8 +8,20 @@
             <h1>EC2 Configuration</h1>
             <hr>
             
-            <form method="POST" action="{{ url_for('admin_ec2_config.ec2_config') }}">
-                {{ form.hidden_tag() }}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="{{ url_for('admin_ec2_config.ec2_config_admin') }}" accept-charset="utf-8" autocomplete="off" role="form" enctype="multipart/form-data">
                 
                 <div class="row">
                     <div class="col-md-6">

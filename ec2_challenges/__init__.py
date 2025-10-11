@@ -43,7 +43,8 @@ def define_ec2_admin(app):
 
     @admin_ec2_config.route("/admin/ec2_config", methods=["GET", "POST"])
     @admins_only
-    def ec2_config():
+    def ec2_config_admin():
+        print(f"DEBUG: EC2 config admin route hit - Method: {request.method}")
         ec2 = EC2Config.query.filter_by(id=1).first()
         form = EC2ConfigForm()
 
@@ -54,19 +55,34 @@ def define_ec2_admin(app):
             db.session.commit()
 
         if request.method == "POST":
-            ec2.aws_access_key_id = request.form["aws_access_key_id"] or None
-            ec2.aws_secret_access_key = request.form["aws_secret_access_key"] or None
-            ec2.region = request.form["region"]
-            ec2.default_instance_type = request.form["default_instance_type"]
-            ec2.default_security_group = request.form["default_security_group"]
-            ec2.default_key_name = request.form["default_key_name"]
-            # ec2.default_subnet_id = request.form["default_subnet_id"]  # Temporarily disabled
-            ec2.max_instance_time = int(request.form["max_instance_time"])
-            ec2.auto_stop_enabled = request.form.get("auto_stop_enabled") == "on"
+            try:
+                ec2.aws_access_key_id = request.form.get("aws_access_key_id") or None
+                ec2.aws_secret_access_key = request.form.get("aws_secret_access_key") or None
+                ec2.region = request.form.get("region")
+                ec2.default_instance_type = request.form.get("default_instance_type")
+                ec2.default_security_group = request.form.get("default_security_group")
+                ec2.default_key_name = request.form.get("default_key_name")
+                # ec2.default_subnet_id = request.form.get("default_subnet_id")  # Temporarily disabled
+                
+                max_time = request.form.get("max_instance_time")
+                if max_time:
+                    ec2.max_instance_time = int(max_time)
+                
+                ec2.auto_stop_enabled = request.form.get("auto_stop_enabled") == "on"
 
-            db.session.add(ec2)
-            db.session.commit()
-            ec2 = EC2Config.query.filter_by(id=1).first()
+                db.session.add(ec2)
+                db.session.commit()
+                ec2 = EC2Config.query.filter_by(id=1).first()
+                
+                # Redirect to prevent duplicate form submission
+                from flask import redirect, url_for, flash
+                flash("EC2 configuration saved successfully!", "success")
+                return redirect(url_for("admin_ec2_config.ec2_config_admin"))
+                
+            except Exception as e:
+                print(f"Error saving EC2 config: {e}")
+                from flask import flash
+                flash(f"Error saving configuration: {str(e)}", "error")
 
         return render_template("admin_ec2_config.html", form=form, ec2_config=ec2)
 

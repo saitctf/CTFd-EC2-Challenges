@@ -1,9 +1,10 @@
 // EC2 Challenge Creation JavaScript
 
-// Load available AMIs and subnets when page loads
+// Load available AMIs, subnets, and security groups when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadAvailableAMIs();
     loadAvailableSubnets();
+    loadAvailableSecurityGroups();
 });
 
 function loadAvailableAMIs() {
@@ -53,6 +54,31 @@ function loadAvailableSubnets() {
         .catch(error => {
             console.error('Error loading subnets:', error);
             showError('Error loading available subnets. Please check your AWS configuration.');
+        });
+}
+
+function loadAvailableSecurityGroups() {
+    fetch('/api/v1/ec2_config')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data.available_security_groups) {
+                const select = document.getElementById('security_group_select');
+                select.innerHTML = '<option value="">Select a security group...</option>';
+                
+                data.data.available_security_groups.forEach(sg => {
+                    const option = document.createElement('option');
+                    option.value = sg.id;
+                    option.textContent = `${sg.name} (${sg.id}) - ${sg.description || 'No description'}`;
+                    select.appendChild(option);
+                });
+            } else {
+                console.error('Failed to load available security groups:', data);
+                showError('Failed to load available security groups. Please check your AWS configuration.');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading security groups:', error);
+            showError('Error loading available security groups. Please check your AWS configuration.');
         });
 }
 

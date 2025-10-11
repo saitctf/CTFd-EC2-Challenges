@@ -39,10 +39,12 @@
     </select>
 </div>
 <div class="form-group">
-    <label for="security_group">Security Group:</label>
-    <input type="text" class="form-control" name="security_group" placeholder="sg-xxxxxxxxx">
+    <label for="security_group_select" id="security_group_label">Security Group:</label>
+    <select id="security_group_select" name="security_group" class="form-control" required>
+        <option value="">Select a security group...</option>
+    </select>
     <small class="form-text text-muted">
-        Security group ID for the EC2 instance
+        Choose the security group for the EC2 instance
     </small>
 </div>
 <div class="form-group">

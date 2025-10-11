@@ -340,6 +340,39 @@ def get_instance_public_ip(ec2_config, instance_id):
         return None
 
 
+def get_available_security_groups(ec2_config):
+    """
+    Get available security groups
+    """
+    if not ec2_config:
+        return []
+    
+    try:
+        ec2_client = boto3.client(
+            "ec2",
+            region_name=ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+        
+        response = ec2_client.describe_security_groups()
+        
+        security_groups = []
+        for sg in response['SecurityGroups']:
+            security_groups.append({
+                'id': sg['GroupId'],
+                'name': sg['GroupName'],
+                'description': sg.get('Description', ''),
+                'vpc_id': sg['VpcId']
+            })
+        
+        return security_groups
+    except Exception as e:
+        print(f"ERROR: Failed to get available security groups: {str(e)}")
+        return []
+
+
 def launch_instance_from_ami(ec2_config, ami_id, instance_type, security_group, key_name, subnet_id, user_script=None):
     """
     Launch a new EC2 instance from an AMI
@@ -865,6 +898,7 @@ class EC2ConfigAPI(Resource):
                 "aws_secret_access_key": ec2_config.aws_secret_access_key,
                 "available_amis": get_available_amis(ec2_config),
                 "available_subnets": get_available_subnets(ec2_config),
+                "available_security_groups": get_available_security_groups(ec2_config),
             }
         }
 

@@ -35,16 +35,25 @@ from .forms import EC2ConfigForm
 def define_ec2_admin(app):
     """Define EC2 admin configuration routes"""
     admin_ec2_config = Blueprint(
-        "admin_ec2_config",
+        "ec2_admin_config",  # Changed name to avoid conflicts
         __name__,
         template_folder="templates",
         static_folder="assets",
     )
 
-    @admin_ec2_config.route("/admin/ec2_config", methods=["GET", "POST"])
-    @admins_only
+    @admin_ec2_config.route("/ec2_admin_config", methods=["GET", "POST"])
+    # @admins_only  # Temporarily disabled for debugging
     def ec2_config_admin():
         print(f"DEBUG: EC2 config admin route hit - Method: {request.method}")
+        
+        # Manual admin check
+        if not is_admin():
+            print("DEBUG: User is not admin, returning 403")
+            print(f"DEBUG: Current user: {get_current_user()}")
+            abort(403)
+        
+        print("DEBUG: User is admin, proceeding with request")
+        
         ec2 = EC2Config.query.filter_by(id=1).first()
         form = EC2ConfigForm()
 
@@ -77,7 +86,7 @@ def define_ec2_admin(app):
                 # Redirect to prevent duplicate form submission
                 from flask import redirect, url_for, flash
                 flash("EC2 configuration saved successfully!", "success")
-                return redirect(url_for("admin_ec2_config.ec2_config_admin"))
+                return redirect(url_for("ec2_admin_config.ec2_config_admin"))
                 
             except Exception as e:
                 print(f"Error saving EC2 config: {e}")

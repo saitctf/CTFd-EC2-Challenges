@@ -1,9 +1,9 @@
-from flask_wtf import FlaskForm
+from CTFd.forms import BaseForm
 from wtforms import StringField, TextAreaField, SelectField, IntegerField, BooleanField, SubmitField
 from wtforms.validators import DataRequired, Length, NumberRange
 
 
-class EC2ConfigForm(FlaskForm):
+class EC2ConfigForm(BaseForm):
     """Form for EC2 configuration"""
     
     # AWS Configuration

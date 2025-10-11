@@ -55,9 +55,9 @@ def upgrade(plugin_name):
     upgrade(plugin_name=plugin_name)
 
 
-def get_available_instances(ec2_config):
+def get_available_amis(ec2_config):
     """
-    Get list of available EC2 instances that can be used for challenges
+    Get list of available AMIs that can be used for challenges
     """
     if not ec2_config:
         return []
@@ -71,26 +71,63 @@ def get_available_instances(ec2_config):
             aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
         )
         
-        # Get instances that are available for challenges
-        response = ec2_client.describe_instances(
+        # Get AMIs that are available for challenges
+        response = ec2_client.describe_images(
+            Owners=['self'],  # Only AMIs owned by the account
             Filters=[
                 {'Name': 'tag:ctfd-challenge', 'Values': ['true']},
-                {'Name': 'instance-state-name', 'Values': ['stopped']}
+                {'Name': 'state', 'Values': ['available']}
             ]
         )
         
-        instances = []
-        for reservation in response['Reservations']:
-            for instance in reservation['Instances']:
-                instances.append({
-                    'id': instance['InstanceId'],
-                    'type': instance['InstanceType'],
-                    'name': next((tag['Value'] for tag in instance.get('Tags', []) if tag['Key'] == 'Name'), instance['InstanceId'])
-                })
+        amis = []
+        for image in response['Images']:
+            amis.append({
+                'id': image['ImageId'],
+                'name': image.get('Name', image['ImageId']),
+                'description': image.get('Description', ''),
+                'architecture': image.get('Architecture', 'x86_64'),
+                'creation_date': image.get('CreationDate', '')
+            })
         
-        return instances
+        return amis
     except Exception as e:
-        print(f"ERROR: Failed to get available instances: {str(e)}")
+        print(f"ERROR: Failed to get available AMIs: {str(e)}")
+        return []
+
+
+def get_available_subnets(ec2_config):
+    """
+    Get available subnets in the VPC
+    """
+    if not ec2_config:
+        return []
+    
+    try:
+        ec2_client = boto3.client(
+            "ec2",
+            region_name=ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+        
+        response = ec2_client.describe_subnets(
+            Filters=[{'Name': 'state', 'Values': ['available']}]
+        )
+        
+        subnets = []
+        for subnet in response['Subnets']:
+            subnets.append({
+                'id': subnet['SubnetId'],
+                'vpc_id': subnet['VpcId'],
+                'availability_zone': subnet['AvailabilityZone'],
+                'cidr_block': subnet['CidrBlock']
+            })
+        
+        return subnets
+    except Exception as e:
+        print(f"ERROR: Failed to get available subnets: {str(e)}")
         return []
 
 
@@ -148,9 +185,9 @@ def get_instance_public_ip(ec2_config, instance_id):
         return None
 
 
-def start_instance(ec2_config, instance_id, user_script=None):
+def launch_instance_from_ami(ec2_config, ami_id, instance_type, security_group, key_name, subnet_id, user_script=None):
     """
-    Start an EC2 instance with optional user data script
+    Launch a new EC2 instance from an AMI
     """
     if not ec2_config:
         return False, ["EC2 configuration not found!"]
@@ -164,25 +201,51 @@ def start_instance(ec2_config, instance_id, user_script=None):
             aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
         )
         
-        # Start the instance
-        start_params = {'InstanceIds': [instance_id]}
+        # Prepare launch parameters
+        launch_params = {
+            'ImageId': ami_id,
+            'MinCount': 1,
+            'MaxCount': 1,
+            'InstanceType': instance_type,
+            'SecurityGroupIds': [security_group],
+            'SubnetId': subnet_id,
+            'TagSpecifications': [
+                {
+                    'ResourceType': 'instance',
+                    'Tags': [
+                        {'Key': 'ctfd-challenge', 'Value': 'true'},
+                        {'Key': 'ctfd-managed', 'Value': 'true'},
+                        {'Key': 'Name', 'Value': f'ctfd-challenge-{int(datetime.utcnow().timestamp())}'}
+                    ]
+                }
+            ]
+        }
+        
+        # Add key pair if specified
+        if key_name:
+            launch_params['KeyName'] = key_name
+        
+        # Add user data if specified
         if user_script:
-            start_params['UserData'] = user_script
-            
-        response = ec2_client.start_instances(**start_params)
+            launch_params['UserData'] = user_script
+        
+        # Launch the instance
+        response = ec2_client.run_instances(**launch_params)
+        
+        instance_id = response['Instances'][0]['InstanceId']
         
         # Wait for instance to be running
         waiter = ec2_client.get_waiter('instance_running')
         waiter.wait(InstanceIds=[instance_id])
         
-        return True, response
+        return True, {'instance_id': instance_id, 'response': response}
     except Exception as e:
         return False, [f"AWS error: {str(e)}"]
 
 
-def stop_instance(ec2_config, instance_id):
+def terminate_instance(ec2_config, instance_id):
     """
-    Stop an EC2 instance
+    Terminate an EC2 instance
     """
     if not ec2_config:
         return False, ["EC2 configuration not found!"]
@@ -196,15 +259,15 @@ def stop_instance(ec2_config, instance_id):
             aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
         )
         
-        response = ec2_client.stop_instances(InstanceIds=[instance_id])
+        response = ec2_client.terminate_instances(InstanceIds=[instance_id])
         return True, response
     except Exception as e:
         return False, [f"AWS error: {str(e)}"]
 
 
-def create_instance_challenge(ec2_config, instance_id, challenge_id, random_flag):
+def create_instance_challenge(ec2_config, challenge_id, random_flag):
     """
-    Create a challenge instance by starting an EC2 instance with flags
+    Create a challenge instance by launching a new EC2 instance from AMI with flags
     """
     if not ec2_config:
         return False, ["EC2 configuration not found!"]
@@ -259,17 +322,27 @@ echo "Setting up challenge environment..."
 echo "Challenge setup completed at $(date)" >> /var/log/ctf-setup.log
 """
 
-        # Start the instance
-        success, result = start_instance(ec2_config, instance_id, user_script)
+        # Launch the instance from AMI
+        success, result = launch_instance_from_ami(
+            ec2_config,
+            challenge.ami_id,
+            challenge.instance_type,
+            challenge.security_group,
+            challenge.key_name,
+            challenge.subnet_id,
+            user_script
+        )
         
         if success:
+            instance_id = result['instance_id']
+            
             # Create tracker entry
             entry = EC2ChallengeTracker(
                 owner_id=session.id,
                 challenge_id=challenge.id,
                 instance_id=instance_id,
                 timestamp=unix_time(datetime.utcnow()),
-                revert_time=unix_time(datetime.utcnow()) + 1800,  # 30 minutes
+                revert_time=unix_time(datetime.utcnow()) + challenge.auto_stop_time,
                 flag=random_flag,
             )
             
@@ -410,14 +483,14 @@ class EC2ChallengeType(BaseChallenge):
         )
         db.session.add(solve)
 
-        # Stop the instance when solved
+        # Terminate the instance when solved
         ec2_config = EC2Config.query.filter_by(id=1).first()
         tracker = EC2ChallengeTracker.query.filter_by(
             challenge_id=challenge.id, owner_id=user.id
         ).first()
         
         if tracker:
-            stop_instance(ec2_config, tracker.instance_id)
+            terminate_instance(ec2_config, tracker.instance_id)
             EC2ChallengeTracker.query.filter_by(instance_id=tracker.instance_id).delete()
 
         db.session.commit()
@@ -470,7 +543,6 @@ class InstanceAPI(Resource):
         flag = "".join(random.choices(string.ascii_uppercase + string.digits, k=16))
         success, result = create_instance_challenge(
             ec2_config,
-            challenge.instance_id,
             challenge_id,
             flag,
         )
@@ -636,7 +708,8 @@ class EC2ConfigAPI(Resource):
                 "region": ec2_config.region,
                 "aws_access_key_id": ec2_config.aws_access_key_id,
                 "aws_secret_access_key": ec2_config.aws_secret_access_key,
-                "available_instances": get_available_instances(ec2_config),
+                "available_amis": get_available_amis(ec2_config),
+                "available_subnets": get_available_subnets(ec2_config),
             }
         }
 

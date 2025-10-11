@@ -4,10 +4,10 @@ A CTFd plugin that allows creating challenges using AWS EC2 instances. This plug
 
 ## Features
 
-- **EC2 Instance Management**: Start and stop EC2 instances for challenges
+- **AMI-Based Instance Launching**: Launch fresh EC2 instances from AMIs for each challenge
 - **Dynamic IP Display**: Automatically retrieve and display public IP addresses
 - **User Scripts**: Run custom setup scripts when instances start
-- **Auto-stop**: Automatically stop instances after a configurable time
+- **Auto-termination**: Automatically terminate instances after a configurable time
 - **Admin Interface**: Configure AWS credentials and instance settings
 - **Challenge Tracking**: Track active instances per user/team
 
@@ -40,10 +40,16 @@ A CTFd plugin that allows creating challenges using AWS EC2 instances. This plug
 
 ### EC2 Instance Setup
 
-1. Create EC2 instances for your challenges
-2. Tag instances with `ctfd-challenge=true`
-3. Ensure instances are in "stopped" state
-4. Configure security groups to allow necessary access
+1. Create AMIs for your challenges:
+   - Build and configure your challenge environments
+   - Create AMIs from your configured instances
+   - Tag AMIs with `ctfd-challenge=true`
+   - Ensure AMIs are in "available" state
+
+2. Configure networking:
+   - Set up VPCs and subnets
+   - Configure security groups for challenge access
+   - Ensure subnets have internet access for public IPs
 
 ## Usage
 
@@ -51,19 +57,20 @@ A CTFd plugin that allows creating challenges using AWS EC2 instances. This plug
 
 1. Go to Admin → Challenges → Create
 2. Select "EC2" as the challenge type
-3. Choose an EC2 instance from the dropdown
-4. Configure instance settings (type, security group, key pair)
-5. Add a setup script if needed
-6. Set auto-stop time (default: 30 minutes)
-7. Save the challenge
+3. Choose an AMI from the dropdown
+4. Select a subnet for the instance
+5. Configure instance settings (type, security group, key pair)
+6. Add a setup script if needed
+7. Set auto-termination time (default: 30 minutes)
+8. Save the challenge
 
 ### User Experience
 
-1. Users click "Start Challenge" to launch an EC2 instance
-2. A spinner shows while the instance starts
+1. Users click "Start Challenge" to launch a new EC2 instance from AMI
+2. A spinner shows while the instance launches
 3. Once running, the public IP is displayed
 4. Users can SSH into the instance to solve the challenge
-5. Instances automatically stop after the configured time
+5. Instances automatically terminate after the configured time
 
 ## API Endpoints
 

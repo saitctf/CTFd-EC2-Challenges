@@ -125,10 +125,17 @@
             
             <hr>
             
-            <h3>Available EC2 Instances</h3>
-            <div id="available-instances">
+            <h3>Available AMIs</h3>
+            <div id="available-amis">
                 <div class="text-center">
-                    <i class="fas fa-circle-notch fa-spin"></i> Loading available instances...
+                    <i class="fas fa-circle-notch fa-spin"></i> Loading available AMIs...
+                </div>
+            </div>
+            
+            <h3>Available Subnets</h3>
+            <div id="available-subnets">
+                <div class="text-center">
+                    <i class="fas fa-circle-notch fa-spin"></i> Loading available subnets...
                 </div>
             </div>
         </div>
@@ -137,27 +144,29 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    loadAvailableInstances();
+    loadAvailableAMIs();
+    loadAvailableSubnets();
 });
 
-function loadAvailableInstances() {
+function loadAvailableAMIs() {
     fetch('/api/v1/ec2_config')
         .then(response => response.json())
         .then(data => {
-            const container = document.getElementById('available-instances');
+            const container = document.getElementById('available-amis');
             
-            if (data.success && data.data.available_instances) {
-                if (data.data.available_instances.length === 0) {
-                    container.innerHTML = '<div class="alert alert-warning">No available EC2 instances found. Make sure your instances are tagged with "ctfd-challenge=true" and are in "stopped" state.</div>';
+            if (data.success && data.data.available_amis) {
+                if (data.data.available_amis.length === 0) {
+                    container.innerHTML = '<div class="alert alert-warning">No available AMIs found. Make sure your AMIs are tagged with "ctfd-challenge=true" and are in "available" state.</div>';
                 } else {
-                    let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Instance ID</th><th>Name</th><th>Type</th><th>State</th></tr></thead><tbody>';
+                    let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>AMI ID</th><th>Name</th><th>Architecture</th><th>Description</th><th>Creation Date</th></tr></thead><tbody>';
                     
-                    data.data.available_instances.forEach(instance => {
+                    data.data.available_amis.forEach(ami => {
                         html += `<tr>
-                            <td><code>${instance.id}</code></td>
-                            <td>${instance.name}</td>
-                            <td>${instance.type}</td>
-                            <td><span class="badge badge-success">Available</span></td>
+                            <td><code>${ami.id}</code></td>
+                            <td>${ami.name}</td>
+                            <td>${ami.architecture}</td>
+                            <td>${ami.description || 'N/A'}</td>
+                            <td>${new Date(ami.creation_date).toLocaleDateString()}</td>
                         </tr>`;
                     });
                     
@@ -165,12 +174,46 @@ function loadAvailableInstances() {
                     container.innerHTML = html;
                 }
             } else {
-                container.innerHTML = '<div class="alert alert-danger">Failed to load available instances. Please check your AWS configuration.</div>';
+                container.innerHTML = '<div class="alert alert-danger">Failed to load available AMIs. Please check your AWS configuration.</div>';
             }
         })
         .catch(error => {
-            console.error('Error loading instances:', error);
-            document.getElementById('available-instances').innerHTML = '<div class="alert alert-danger">Error loading available instances. Please check your AWS configuration.</div>';
+            console.error('Error loading AMIs:', error);
+            document.getElementById('available-amis').innerHTML = '<div class="alert alert-danger">Error loading available AMIs. Please check your AWS configuration.</div>';
+        });
+}
+
+function loadAvailableSubnets() {
+    fetch('/api/v1/ec2_config')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('available-subnets');
+            
+            if (data.success && data.data.available_subnets) {
+                if (data.data.available_subnets.length === 0) {
+                    container.innerHTML = '<div class="alert alert-warning">No available subnets found.</div>';
+                } else {
+                    let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Subnet ID</th><th>VPC ID</th><th>Availability Zone</th><th>CIDR Block</th></tr></thead><tbody>';
+                    
+                    data.data.available_subnets.forEach(subnet => {
+                        html += `<tr>
+                            <td><code>${subnet.id}</code></td>
+                            <td><code>${subnet.vpc_id}</code></td>
+                            <td>${subnet.availability_zone}</td>
+                            <td>${subnet.cidr_block}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    container.innerHTML = html;
+                }
+            } else {
+                container.innerHTML = '<div class="alert alert-danger">Failed to load available subnets. Please check your AWS configuration.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading subnets:', error);
+            document.getElementById('available-subnets').innerHTML = '<div class="alert alert-danger">Error loading available subnets. Please check your AWS configuration.</div>';
         });
 }
 </script>

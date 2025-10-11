@@ -8,12 +8,21 @@
     <input type="text" class="form-control chal-category" name="category" value="{{ challenge.category }}">
 </div>
 <div class="form-group">
-    <label for="instance_id_select" id="instance_id_label">EC2 Instance ID:</label>
-    <select id="instance_id_select" name="instance_id" class="form-control" required>
-        <option value="">Select an EC2 instance...</option>
+    <label for="ami_id_select" id="ami_id_label">AMI ID:</label>
+    <select id="ami_id_select" name="ami_id" class="form-control" required>
+        <option value="">Select an AMI...</option>
     </select>
     <small class="form-text text-muted">
-        Choose the EC2 instance to use for this challenge
+        Choose the AMI to use for this challenge
+    </small>
+</div>
+<div class="form-group">
+    <label for="subnet_id_select" id="subnet_id_label">Subnet ID:</label>
+    <select id="subnet_id_select" name="subnet_id" class="form-control" required>
+        <option value="">Select a subnet...</option>
+    </select>
+    <small class="form-text text-muted">
+        Choose the subnet for the EC2 instance
     </small>
 </div>
 <div class="form-group">
@@ -65,16 +74,18 @@
 {% endblock %}
 {% block footer %}
 <script>
-    var EC2_INSTANCE_ID = '{{ challenge.instance_id }}';
+    var EC2_AMI_ID = '{{ challenge.ami_id }}';
     var EC2_INSTANCE_TYPE = '{{ challenge.instance_type }}';
     var EC2_SECURITY_GROUP = '{{ challenge.security_group }}';
     var EC2_KEY_NAME = '{{ challenge.key_name }}';
+    var EC2_SUBNET_ID = '{{ challenge.subnet_id }}';
     var EC2_SETUP_SCRIPT = {{ challenge.setup_script | tojson }};
     var EC2_GUIDE = {{ challenge.guide | tojson }};
     var EC2_AUTO_STOP_TIME = {{ challenge.auto_stop_time }};
     
     // Set form values
-    document.querySelector("#instance_id_select").value = EC2_INSTANCE_ID;
+    document.querySelector("#ami_id_select").value = EC2_AMI_ID;
+    document.querySelector("#subnet_id_select").value = EC2_SUBNET_ID;
     document.querySelector("#instance_type_select").value = EC2_INSTANCE_TYPE;
     document.querySelector("#setup_script").value = EC2_SETUP_SCRIPT;
     document.querySelector("#guide").value = EC2_GUIDE;

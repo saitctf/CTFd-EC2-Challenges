@@ -42,11 +42,12 @@ class EC2Challenge(Challenges):
     __mapper_args__ = {"polymorphic_identity": "ec2"}
     id = db.Column(None, db.ForeignKey("challenges.id"), primary_key=True)
     
-    # Instance Configuration
-    instance_id = db.Column(db.String(128), index=True)
+    # AMI Configuration
+    ami_id = db.Column(db.String(128), index=True)
     instance_type = db.Column(db.String(32))
     security_group = db.Column(db.String(128))
     key_name = db.Column(db.String(128))
+    subnet_id = db.Column(db.String(128))
     
     # Challenge Configuration
     setup_script = db.Column(db.Text, default="")

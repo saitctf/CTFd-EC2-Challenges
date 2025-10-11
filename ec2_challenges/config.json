@@ -1,7 +1,7 @@
 [
 	{
 		"name": "EC2 Config",
-		"route": "/ec2_admin_config"
+		"route": "/admin/ec2_config"
 	},
 	{
 		"name": "EC2 Status",

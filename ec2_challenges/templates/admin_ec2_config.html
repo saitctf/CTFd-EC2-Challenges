@@ -21,7 +21,8 @@
                 {% endif %}
             {% endwith %}
             
-            <form method="POST" action="{{ url_for('ec2_admin_config.ec2_config_admin') }}" accept-charset="utf-8" autocomplete="off" role="form" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('admin_ec2_config.ec2_config_admin') }}" accept-charset="utf-8" autocomplete="off" role="form" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 
                 <div class="row">
                     <div class="col-md-6">
@@ -32,39 +33,32 @@
                         </div>
                         
                         <div class="form-group">
-                            {{ form.aws_access_key_id.label(class="form-label") }}
-                            {{ form.aws_access_key_id(class="form-control") }}
-                            {% if form.aws_access_key_id.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.aws_access_key_id.errors %}
-                                        <small>{{ error }}</small><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                            <label for="aws_access_key_id" class="form-label">AWS Access Key ID (Optional)</label>
+                            <input class="form-control" type="text" name="aws_access_key_id" id="aws_access_key_id"
+                                placeholder="Ex: AKI1234567890ABCDEFG" value="{{ ec2_config.aws_access_key_id or '' }}" />
                         </div>
                         
                         <div class="form-group">
-                            {{ form.aws_secret_access_key.label(class="form-label") }}
-                            {{ form.aws_secret_access_key(class="form-control") }}
-                            {% if form.aws_secret_access_key.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.aws_secret_access_key.errors %}
-                                        <small>{{ error }}</small><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                            <label for="aws_secret_access_key" class="form-label">AWS Secret Access Key (Optional)</label>
+                            <input class="form-control" type="password" name="aws_secret_access_key" id="aws_secret_access_key"
+                                placeholder="Ex: 87428fc522803d31065e7bce3cf03fe475096631" value="{{ ec2_config.aws_secret_access_key or '' }}" />
                         </div>
                         
                         <div class="form-group">
-                            {{ form.region.label(class="form-label") }}
-                            {{ form.region(class="form-control") }}
-                            {% if form.region.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.region.errors %}
-                                        <small>{{ error }}</small><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                            <label for="region" class="form-label">AWS Region</label>
+                            <select class="form-control" name="region" id="region" required>
+                                <option value="">Select a region</option>
+                                <option value="us-east-1" {% if ec2_config.region == 'us-east-1' %}selected{% endif %}>US East (N. Virginia)</option>
+                                <option value="us-east-2" {% if ec2_config.region == 'us-east-2' %}selected{% endif %}>US East (Ohio)</option>
+                                <option value="us-west-1" {% if ec2_config.region == 'us-west-1' %}selected{% endif %}>US West (N. California)</option>
+                                <option value="us-west-2" {% if ec2_config.region == 'us-west-2' %}selected{% endif %}>US West (Oregon)</option>
+                                <option value="eu-west-1" {% if ec2_config.region == 'eu-west-1' %}selected{% endif %}>Europe (Ireland)</option>
+                                <option value="eu-west-2" {% if ec2_config.region == 'eu-west-2' %}selected{% endif %}>Europe (London)</option>
+                                <option value="eu-central-1" {% if ec2_config.region == 'eu-central-1' %}selected{% endif %}>Europe (Frankfurt)</option>
+                                <option value="ap-southeast-1" {% if ec2_config.region == 'ap-southeast-1' %}selected{% endif %}>Asia Pacific (Singapore)</option>
+                                <option value="ap-southeast-2" {% if ec2_config.region == 'ap-southeast-2' %}selected{% endif %}>Asia Pacific (Sydney)</option>
+                                <option value="ap-northeast-1" {% if ec2_config.region == 'ap-northeast-1' %}selected{% endif %}>Asia Pacific (Tokyo)</option>
+                            </select>
                         </div>
                     </div>
                     
@@ -72,39 +66,28 @@
                         <h3>Instance Configuration</h3>
                         
                         <div class="form-group">
-                            {{ form.default_instance_type.label(class="form-label") }}
-                            {{ form.default_instance_type(class="form-control") }}
-                            {% if form.default_instance_type.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.default_instance_type.errors %}
-                                        <small>{{ error }}</small><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                            <label for="default_instance_type" class="form-label">Default Instance Type</label>
+                            <select class="form-control" name="default_instance_type" id="default_instance_type" required>
+                                <option value="">Select instance type</option>
+                                <option value="t2.micro" {% if ec2_config.default_instance_type == 't2.micro' %}selected{% endif %}>t2.micro - 1 vCPU, 1 GB RAM</option>
+                                <option value="t2.small" {% if ec2_config.default_instance_type == 't2.small' %}selected{% endif %}>t2.small - 1 vCPU, 2 GB RAM</option>
+                                <option value="t2.medium" {% if ec2_config.default_instance_type == 't2.medium' %}selected{% endif %}>t2.medium - 2 vCPU, 4 GB RAM</option>
+                                <option value="t3.micro" {% if ec2_config.default_instance_type == 't3.micro' %}selected{% endif %}>t3.micro - 2 vCPU, 1 GB RAM</option>
+                                <option value="t3.small" {% if ec2_config.default_instance_type == 't3.small' %}selected{% endif %}>t3.small - 2 vCPU, 2 GB RAM</option>
+                                <option value="t3.medium" {% if ec2_config.default_instance_type == 't3.medium' %}selected{% endif %}>t3.medium - 2 vCPU, 4 GB RAM</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
-                            {{ form.default_security_group.label(class="form-label") }}
-                            {{ form.default_security_group(class="form-control") }}
-                            {% if form.default_security_group.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.default_security_group.errors %}
-                                        <small>{{ error }}</small><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                            <label for="default_security_group" class="form-label">Default Security Group</label>
+                            <input class="form-control" type="text" name="default_security_group" id="default_security_group"
+                                placeholder="Ex: sg-12345678" value="{{ ec2_config.default_security_group or '' }}" required />
                         </div>
                         
                         <div class="form-group">
-                            {{ form.default_key_name.label(class="form-label") }}
-                            {{ form.default_key_name(class="form-control") }}
-                            {% if form.default_key_name.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.default_key_name.errors %}
-                                        <small>{{ error }}</small><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                            <label for="default_key_name" class="form-label">Default Key Pair Name</label>
+                            <input class="form-control" type="text" name="default_key_name" id="default_key_name"
+                                placeholder="Ex: my-key-pair" value="{{ ec2_config.default_key_name or '' }}" required />
                         </div>
                     </div>
                 </div>
@@ -114,28 +97,23 @@
                         <h3>Challenge Configuration</h3>
                         
                         <div class="form-group">
-                            {{ form.max_instance_time.label(class="form-label") }}
-                            {{ form.max_instance_time(class="form-control") }}
-                            {% if form.max_instance_time.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.max_instance_time.errors %}
-                                        <small>{{ error }}</small><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                            <label for="max_instance_time" class="form-label">Maximum Instance Time (seconds)</label>
+                            <input class="form-control" type="number" name="max_instance_time" id="max_instance_time"
+                                placeholder="1800" value="{{ ec2_config.max_instance_time or 1800 }}" min="300" max="7200" required />
                         </div>
                         
                         <div class="form-group">
                             <div class="form-check">
-                                {{ form.auto_stop_enabled(class="form-check-input") }}
-                                {{ form.auto_stop_enabled.label(class="form-check-label") }}
+                                <input class="form-check-input" type="checkbox" name="auto_stop_enabled" id="auto_stop_enabled" 
+                                    {% if ec2_config.auto_stop_enabled %}checked{% endif %} />
+                                <label class="form-check-label" for="auto_stop_enabled">Auto-stop Enabled</label>
                             </div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="form-group">
-                    {{ form.submit(class="btn btn-primary") }}
+                    <button type="submit" class="btn btn-primary">Save Configuration</button>
                 </div>
             </form>
             

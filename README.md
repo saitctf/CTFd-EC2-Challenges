@@ -19,19 +19,61 @@ A CTFd plugin that allows creating challenges using AWS EC2 instances. This plug
    pip install -r requirements.txt
    ```
 3. Restart CTFd
-4. Configure AWS credentials in the admin panel
+4. Configure AWS credentials in the admin panel (or use environment variables)
+
+### Environment Variables
+
+You can configure the plugin using environment variables instead of the web interface:
+
+- `AWS_ACCESS_KEY_ID`: AWS Access Key ID (optional if using IAM role)
+- `AWS_SECRET_ACCESS_KEY`: AWS Secret Access Key (optional if using IAM role)
+- `AWS_REGION`: AWS region (required)
+- `AWS_DEFAULT_INSTANCE_TYPE`: Default instance type (e.g., t2.micro)
+- `AWS_DEFAULT_SECURITY_GROUP`: Default security group ID
+- `AWS_DEFAULT_KEY_NAME`: Default key pair name
+- `AWS_MAX_INSTANCE_TIME`: Maximum instance runtime in seconds (default: 1800)
+- `AWS_AUTO_STOP_ENABLED`: Enable auto-stop (true/false, default: true)
 
 ## Configuration
 
 ### AWS Setup
 
-1. Create an AWS IAM user with the following permissions:
-   - `ec2:DescribeInstances`
-   - `ec2:StartInstances`
-   - `ec2:StopInstances`
-   - `ec2:DescribeSecurityGroups`
-   - `ec2:DescribeKeyPairs`
+#### Option 1: IAM Role (Recommended for AWS deployments)
 
+If running CTFd on AWS (EC2, ECS, etc.), you can use an IAM role instead of hardcoded credentials:
+
+1. Create an IAM role with the following permissions:
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "ec2:DescribeInstances",
+                   "ec2:RunInstances",
+                   "ec2:TerminateInstances",
+                   "ec2:DescribeImages",
+                   "ec2:DescribeSecurityGroups",
+                   "ec2:DescribeKeyPairs",
+                   "ec2:DescribeSubnets",
+                   "ec2:DescribeVpcs",
+                   "ec2:DescribeNetworkInterfaces",
+                   "ec2:CreateTags",
+                   "ec2:DescribeTags"
+               ],
+               "Resource": "*"
+           }
+       ]
+   }
+   ```
+
+2. Attach the role to your CTFd instance/task
+3. Configure AWS settings in the CTFd admin panel (credentials can be left blank)
+
+#### Option 2: IAM User (For non-AWS deployments)
+
+1. Create an AWS IAM user with the permissions listed above
 2. Configure AWS credentials in the CTFd admin panel:
    - Go to Admin → EC2 Config
    - Enter your AWS Access Key ID and Secret Access Key

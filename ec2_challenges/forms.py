@@ -8,15 +8,15 @@ class EC2ConfigForm(FlaskForm):
     
     # AWS Configuration
     aws_access_key_id = StringField(
-        "AWS Access Key ID",
-        validators=[DataRequired(), Length(min=16, max=20)],
-        description="Your AWS Access Key ID"
+        "AWS Access Key ID (Optional)",
+        validators=[Length(min=16, max=20)],
+        description="Your AWS Access Key ID (leave blank if using IAM roles)"
     )
     
     aws_secret_access_key = StringField(
-        "AWS Secret Access Key",
-        validators=[DataRequired(), Length(min=40, max=40)],
-        description="Your AWS Secret Access Key"
+        "AWS Secret Access Key (Optional)",
+        validators=[Length(min=40, max=40)],
+        description="Your AWS Secret Access Key (leave blank if using IAM roles)"
     )
     
     region = SelectField(

@@ -116,6 +116,45 @@ def load(app):
     CTFd_API_v1.add_namespace(instance_status_namespace, "/instance_status")
     CTFd_API_v1.add_namespace(active_ec2_namespace, "/ec2")
     CTFd_API_v1.add_namespace(ec2_config_namespace, "/ec2_config")
+    
+    # Initialize EC2 configuration from environment variables
+    try:
+        ec2 = EC2Config.query.filter_by(id=1).first()
+        
+        if ec2 is None:
+            ec2 = EC2Config(id=1)
+        
+        # Set configuration from environment variables if available
+        if "AWS_ACCESS_KEY_ID" in os.environ:
+            ec2.aws_access_key_id = os.environ["AWS_ACCESS_KEY_ID"]
+        
+        if "AWS_SECRET_ACCESS_KEY" in os.environ:
+            ec2.aws_secret_access_key = os.environ["AWS_SECRET_ACCESS_KEY"]
+        
+        if "AWS_REGION" in os.environ:
+            ec2.region = os.environ["AWS_REGION"]
+        
+        if "AWS_DEFAULT_INSTANCE_TYPE" in os.environ:
+            ec2.default_instance_type = os.environ["AWS_DEFAULT_INSTANCE_TYPE"]
+        
+        if "AWS_DEFAULT_SECURITY_GROUP" in os.environ:
+            ec2.default_security_group = os.environ["AWS_DEFAULT_SECURITY_GROUP"]
+        
+        if "AWS_DEFAULT_KEY_NAME" in os.environ:
+            ec2.default_key_name = os.environ["AWS_DEFAULT_KEY_NAME"]
+        
+        if "AWS_MAX_INSTANCE_TIME" in os.environ:
+            ec2.max_instance_time = int(os.environ["AWS_MAX_INSTANCE_TIME"])
+        
+        if "AWS_AUTO_STOP_ENABLED" in os.environ:
+            ec2.auto_stop_enabled = os.environ["AWS_AUTO_STOP_ENABLED"].lower() in ["true", "1", "yes"]
+        
+        db.session.add(ec2)
+        db.session.commit()
+    except Exception as e:
+        # This can fail due to database migrations not yet applied, so we should fail out gracefully
+        print(f"Warning: Could not initialize EC2 configuration from environment variables: {e}")
+        pass
 
 
 def upgrade(plugin_name):

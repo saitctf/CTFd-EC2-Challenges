@@ -14,6 +14,10 @@
                 <div class="row">
                     <div class="col-md-6">
                         <h3>AWS Configuration</h3>
+                        <div class="alert alert-info">
+                            <strong>Note:</strong> If running CTFd on AWS with an IAM role, you can leave the credentials blank. 
+                            The plugin will automatically use the instance's IAM role for AWS API calls.
+                        </div>
                         
                         <div class="form-group">
                             {{ form.aws_access_key_id.label(class="form-label") }}

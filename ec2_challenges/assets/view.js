@@ -51,13 +51,14 @@ function get_ec2_status(challenge) {
                     let currentSecond = Math.floor(new Date().getTime() / 1000);
                     let deltaSecond = Math.floor((currentSecond - initSecond) / 5);
                     let funny_words = [
-                        'Provisioning challenge...',
+                        'Provisioning VM challenge...',
                         'Getting stuff ready...',
                         'Injecting stuff...',
                         'Downloading viruses to your computer...',
                         'Almost ready...',
                         'Need coffee...',
-                        'Killing time...'
+                        'Killing time...',
+                        'Killing in the name of...'
                     ]
 
                     if (!running) {
@@ -120,12 +121,14 @@ function wait_for_ip_and_show_status(challenge) {
         
         // Update spinner message
         const statusMessages = [
-            'Starting challenge...',
-            'Provisioning EC2 instance...',
-            'Creating Security Groups...',
-            'Getting network ready...',
-            'Retrieving IP address...',
-            'Almost ready...'
+            'Provisioning VM challenge...',
+            'Doing stuff and things...',
+            'Injecting stuff...',
+            'Downloading viruses to your computer...',
+            'Almost ready...',
+            'Need coffee...',
+            'Killing time...',
+            'Killing in the name of...'
         ];
         const messageIndex = Math.min(Math.floor(attempts / 10), statusMessages.length - 1);
         document.querySelector('#ec2_container').innerHTML = 

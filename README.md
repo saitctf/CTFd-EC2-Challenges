@@ -60,7 +60,8 @@ If running CTFd on AWS (EC2, ECS, etc.), you can use an IAM role instead of hard
                    "ec2:DescribeVpcs",
                    "ec2:DescribeNetworkInterfaces",
                    "ec2:CreateTags",
-                   "ec2:DescribeTags"
+                   "ec2:DescribeTags",
+                   "ec2:DescribeImageAttribute"
                ],
                "Resource": "*"
            }

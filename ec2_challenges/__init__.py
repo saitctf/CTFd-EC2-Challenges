@@ -218,8 +218,14 @@ def get_available_amis(ec2_config):
         
         return amis
     except Exception as e:
-        print(f"ERROR: Failed to get available AMIs: {str(e)}")
-        return []
+        error_msg = str(e)
+        print(f"ERROR: Failed to get available AMIs: {error_msg}")
+        
+        # Return a special error indicator instead of empty list
+        if "UnauthorizedOperation" in error_msg or "not authorized" in error_msg.lower():
+            return [{"error": "permission_denied", "message": "Missing ec2:DescribeImages permission"}]
+        else:
+            return [{"error": "api_error", "message": error_msg}]
 
 
 def get_available_subnets(ec2_config):

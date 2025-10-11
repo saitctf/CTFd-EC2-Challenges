@@ -173,6 +173,14 @@ function loadAvailableAMIs() {
             if (data.success && data.data.available_amis) {
                 if (data.data.available_amis.length === 0) {
                     container.innerHTML = '<div class="alert alert-warning">No available AMIs found. Make sure your AMIs are tagged with "ctfd-challenge=true" and are in "available" state.</div>';
+                } else if (data.data.available_amis[0] && data.data.available_amis[0].error) {
+                    // Handle error cases
+                    const error = data.data.available_amis[0];
+                    if (error.error === "permission_denied") {
+                        container.innerHTML = '<div class="alert alert-danger"><strong>Permission Error:</strong> ' + error.message + '. Please add the <code>ec2:DescribeImages</code> permission to your IAM role.</div>';
+                    } else {
+                        container.innerHTML = '<div class="alert alert-danger"><strong>Error:</strong> ' + error.message + '</div>';
+                    }
                 } else {
                     let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>AMI ID</th><th>Name</th><th>Architecture</th><th>Description</th><th>Creation Date</th></tr></thead><tbody>';
                     

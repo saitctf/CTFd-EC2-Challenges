@@ -1,0 +1,177 @@
+{% extends "admin/base.html" %}
+{% block title %}EC2 Configuration{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>EC2 Configuration</h1>
+            <hr>
+            
+            <form method="POST" action="{{ url_for('ec2_challenges.config') }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>AWS Configuration</h3>
+                        
+                        <div class="form-group">
+                            {{ form.aws_access_key_id.label(class="form-label") }}
+                            {{ form.aws_access_key_id(class="form-control") }}
+                            {% if form.aws_access_key_id.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.aws_access_key_id.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            {{ form.aws_secret_access_key.label(class="form-label") }}
+                            {{ form.aws_secret_access_key(class="form-control") }}
+                            {% if form.aws_secret_access_key.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.aws_secret_access_key.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            {{ form.region.label(class="form-label") }}
+                            {{ form.region(class="form-control") }}
+                            {% if form.region.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.region.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h3>Instance Configuration</h3>
+                        
+                        <div class="form-group">
+                            {{ form.default_instance_type.label(class="form-label") }}
+                            {{ form.default_instance_type(class="form-control") }}
+                            {% if form.default_instance_type.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.default_instance_type.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            {{ form.default_security_group.label(class="form-label") }}
+                            {{ form.default_security_group(class="form-control") }}
+                            {% if form.default_security_group.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.default_security_group.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            {{ form.default_key_name.label(class="form-label") }}
+                            {{ form.default_key_name(class="form-control") }}
+                            {% if form.default_key_name.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.default_key_name.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <h3>Challenge Configuration</h3>
+                        
+                        <div class="form-group">
+                            {{ form.max_instance_time.label(class="form-label") }}
+                            {{ form.max_instance_time(class="form-control") }}
+                            {% if form.max_instance_time.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.max_instance_time.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <div class="form-check">
+                                {{ form.auto_stop_enabled(class="form-check-input") }}
+                                {{ form.auto_stop_enabled.label(class="form-check-label") }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+            
+            <hr>
+            
+            <h3>Available EC2 Instances</h3>
+            <div id="available-instances">
+                <div class="text-center">
+                    <i class="fas fa-circle-notch fa-spin"></i> Loading available instances...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadAvailableInstances();
+});
+
+function loadAvailableInstances() {
+    fetch('/api/v1/ec2_config')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('available-instances');
+            
+            if (data.success && data.data.available_instances) {
+                if (data.data.available_instances.length === 0) {
+                    container.innerHTML = '<div class="alert alert-warning">No available EC2 instances found. Make sure your instances are tagged with "ctfd-challenge=true" and are in "stopped" state.</div>';
+                } else {
+                    let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Instance ID</th><th>Name</th><th>Type</th><th>State</th></tr></thead><tbody>';
+                    
+                    data.data.available_instances.forEach(instance => {
+                        html += `<tr>
+                            <td><code>${instance.id}</code></td>
+                            <td>${instance.name}</td>
+                            <td>${instance.type}</td>
+                            <td><span class="badge badge-success">Available</span></td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    container.innerHTML = html;
+                }
+            } else {
+                container.innerHTML = '<div class="alert alert-danger">Failed to load available instances. Please check your AWS configuration.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading instances:', error);
+            document.getElementById('available-instances').innerHTML = '<div class="alert alert-danger">Error loading available instances. Please check your AWS configuration.</div>';
+        });
+}
+</script>
+{% endblock %}

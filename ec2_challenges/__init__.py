@@ -1,0 +1,671 @@
+import boto3
+import os
+import json
+import hashlib
+import random
+import string
+from datetime import datetime
+from CTFd.plugins.challenges import BaseChallenge
+from CTFd.plugins.flags import Flags
+from CTFd.utils.user import get_current_user, get_current_team, is_admin
+from CTFd.utils.uploads import delete_file
+from CTFd.utils import user as user_utils
+from CTFd.utils import config
+from CTFd.api import CTFd_API_v1
+from CTFd.api.v1.scoreboard import ScoreboardDetail
+from CTFd.utils.scores import get_standings
+from CTFd.api.v1.challenges import ChallengeList, Challenge
+from flask_restx import Namespace, Resource
+from flask import request, render_template, Blueprint, abort
+from CTFd.models import (
+    db,
+    Challenges,
+    Fails,
+    Solves,
+    ChallengeFiles,
+    Tags,
+    Hints,
+)
+from CTFd.utils.decorators import authed_only, admins_only
+from CTFd.utils.decorators.visibility import check_challenge_visibility
+from CTFd.utils.user import get_current_user
+from CTFd.utils.user import get_current_team
+from CTFd.utils.user import is_admin
+from CTFd.utils.config import get_config
+from CTFd.utils import get_ip
+from flask import request
+from CTFd.utils.dates import unix_time
+from CTFd.plugins import register_plugin_assets_directory
+from CTFd.forms import BaseForm
+from CTFd.forms.fields import SubmitField
+from CTFd.utils.config import get_config
+
+from .models import EC2Config, EC2ChallengeTracker, EC2Challenge, EC2History
+from .forms import EC2ConfigForm
+
+def load(app):
+    upgrade(plugin_name="ec2_challenges")
+
+
+def upgrade(plugin_name):
+    """
+    Upgrade function for the plugin
+    """
+    from CTFd.plugins.migrations import upgrade
+    upgrade(plugin_name=plugin_name)
+
+
+def get_available_instances(ec2_config):
+    """
+    Get list of available EC2 instances that can be used for challenges
+    """
+    if not ec2_config:
+        return []
+    
+    try:
+        ec2_client = boto3.client(
+            "ec2",
+            region_name=ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+        
+        # Get instances that are available for challenges
+        response = ec2_client.describe_instances(
+            Filters=[
+                {'Name': 'tag:ctfd-challenge', 'Values': ['true']},
+                {'Name': 'instance-state-name', 'Values': ['stopped']}
+            ]
+        )
+        
+        instances = []
+        for reservation in response['Reservations']:
+            for instance in reservation['Instances']:
+                instances.append({
+                    'id': instance['InstanceId'],
+                    'type': instance['InstanceType'],
+                    'name': next((tag['Value'] for tag in instance.get('Tags', []) if tag['Key'] == 'Name'), instance['InstanceId'])
+                })
+        
+        return instances
+    except Exception as e:
+        print(f"ERROR: Failed to get available instances: {str(e)}")
+        return []
+
+
+def get_security_groups(ec2_config, vpc_id):
+    """
+    Get security groups for a VPC
+    """
+    if not ec2_config:
+        return []
+    
+    try:
+        ec2_client = boto3.client(
+            "ec2",
+            region_name=ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+        
+        response = ec2_client.describe_security_groups(
+            Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}]
+        )
+        
+        return [sg['GroupId'] for sg in response['SecurityGroups']]
+    except Exception as e:
+        print(f"ERROR: Failed to get security groups: {str(e)}")
+        return []
+
+
+def get_instance_public_ip(ec2_config, instance_id):
+    """
+    Get the public IP address of an EC2 instance
+    """
+    if not ec2_config:
+        return None
+        
+    try:
+        ec2_client = boto3.client(
+            "ec2",
+            region_name=ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+        
+        response = ec2_client.describe_instances(InstanceIds=[instance_id])
+        
+        if response['Reservations']:
+            instance = response['Reservations'][0]['Instances'][0]
+            return instance.get('PublicIpAddress')
+        
+        return None
+    except Exception as e:
+        print(f"ERROR: Failed to get instance IP: {str(e)}")
+        return None
+
+
+def start_instance(ec2_config, instance_id, user_script=None):
+    """
+    Start an EC2 instance with optional user data script
+    """
+    if not ec2_config:
+        return False, ["EC2 configuration not found!"]
+    
+    try:
+        ec2_client = boto3.client(
+            "ec2",
+            region_name=ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+        
+        # Start the instance
+        start_params = {'InstanceIds': [instance_id]}
+        if user_script:
+            start_params['UserData'] = user_script
+            
+        response = ec2_client.start_instances(**start_params)
+        
+        # Wait for instance to be running
+        waiter = ec2_client.get_waiter('instance_running')
+        waiter.wait(InstanceIds=[instance_id])
+        
+        return True, response
+    except Exception as e:
+        return False, [f"AWS error: {str(e)}"]
+
+
+def stop_instance(ec2_config, instance_id):
+    """
+    Stop an EC2 instance
+    """
+    if not ec2_config:
+        return False, ["EC2 configuration not found!"]
+    
+    try:
+        ec2_client = boto3.client(
+            "ec2",
+            region_name=ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+        
+        response = ec2_client.stop_instances(InstanceIds=[instance_id])
+        return True, response
+    except Exception as e:
+        return False, [f"AWS error: {str(e)}"]
+
+
+def create_instance_challenge(ec2_config, instance_id, challenge_id, random_flag):
+    """
+    Create a challenge instance by starting an EC2 instance with flags
+    """
+    if not ec2_config:
+        return False, ["EC2 configuration not found!"]
+    
+    # Validate required AWS settings
+    if not ec2_config.region:
+        return False, ["AWS region not configured. Please configure AWS settings first."]
+    
+    try:
+        ec2_client = boto3.client(
+            "ec2",
+            region_name=ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+
+        session = get_current_user()
+        challenge = EC2Challenge.query.filter_by(id=challenge_id).first()
+
+        # Check if user already has a running instance
+        if not is_admin():
+            if len(EC2ChallengeTracker.query.filter_by(owner_id=session.id).all()):
+                tracker = EC2ChallengeTracker.query.filter_by(owner_id=session.id).first()
+                challenge = EC2Challenge.query.filter_by(id=tracker.challenge_id).first()
+                return False, [
+                    "You already have a running instance!",
+                    challenge.name,
+                    tracker.challenge_id,
+                    tracker.instance_id,
+                ]
+
+        # Get the flags on the challenge
+        flags = Flags.query.filter_by(challenge_id=challenge_id).all()
+        
+        # Create user data script with flags
+        user_script = f"""#!/bin/bash
+# CTF Challenge Setup Script
+echo "Setting up challenge environment..."
+
+# Set flags as environment variables
+"""
+        
+        for i, flag in enumerate(flags):
+            user_script += f'echo "export FLAG_{i}={flag.content}" >> /etc/environment\n'
+        
+        user_script += f"""
+# Additional challenge setup
+{challenge.setup_script or ""}
+
+# Log completion
+echo "Challenge setup completed at $(date)" >> /var/log/ctf-setup.log
+"""
+
+        # Start the instance
+        success, result = start_instance(ec2_config, instance_id, user_script)
+        
+        if success:
+            # Create tracker entry
+            entry = EC2ChallengeTracker(
+                owner_id=session.id,
+                challenge_id=challenge.id,
+                instance_id=instance_id,
+                timestamp=unix_time(datetime.utcnow()),
+                revert_time=unix_time(datetime.utcnow()) + 1800,  # 30 minutes
+                flag=random_flag,
+            )
+            
+            db.session.add(entry)
+            db.session.commit()
+            
+            return True, result
+        else:
+            return False, result
+            
+    except Exception as e:
+        return False, [f"AWS error: {str(e)}"]
+
+
+class EC2ChallengeType(BaseChallenge):
+    id = "ec2"
+    name = "ec2"
+    templates = {
+        "create": "/plugins/ec2_challenges/assets/create.html",
+        "update": "/plugins/ec2_challenges/assets/update.html",
+        "view": "/plugins/ec2_challenges/assets/view.html",
+    }
+    scripts = {
+        "create": "/plugins/ec2_challenges/assets/create.js",
+        "update": "/plugins/ec2_challenges/assets/update.js",
+        "view": "/plugins/ec2_challenges/assets/view.js",
+    }
+    route = "/plugins/ec2_challenges/assets"
+    blueprint = Blueprint(
+        "ec2_challenges",
+        __name__,
+        template_folder="templates",
+        static_folder="assets",
+    )
+
+    @staticmethod
+    def update(challenge, request):
+        """
+        This method is used to update the information associated with a challenge.
+        """
+        data = request.form or request.get_json()
+        
+        challenge = EC2Challenge.query.filter_by(id=challenge.id).first()
+        for attr, value in data.items():
+            if hasattr(challenge, attr):
+                setattr(challenge, attr, value)
+        
+        db.session.commit()
+        return challenge
+
+    @staticmethod
+    def delete(challenge):
+        """
+        This method is used to delete the resources used by a challenge.
+        """
+        Fails.query.filter_by(challenge_id=challenge.id).delete()
+        Solves.query.filter_by(challenge_id=challenge.id).delete()
+        Flags.query.filter_by(challenge_id=challenge.id).delete()
+        files = ChallengeFiles.query.filter_by(challenge_id=challenge.id).all()
+        for f in files:
+            delete_file(f.id)
+        ChallengeFiles.query.filter_by(challenge_id=challenge.id).delete()
+        Tags.query.filter_by(challenge_id=challenge.id).delete()
+        Hints.query.filter_by(challenge_id=challenge.id).delete()
+        EC2Challenge.query.filter_by(id=challenge.id).delete()
+        Challenges.query.filter_by(id=challenge.id).delete()
+        db.session.commit()
+
+    @staticmethod
+    def read(challenge):
+        """
+        This method is used to read the information associated with a challenge.
+        """
+        challenge = EC2Challenge.query.filter_by(id=challenge.id).first()
+        data = {
+            "id": challenge.id,
+            "name": challenge.name,
+            "value": challenge.value,
+            "description": challenge.description,
+            "category": challenge.category,
+            "state": challenge.state,
+            "max_attempts": challenge.max_attempts,
+            "type": challenge.type,
+            "instance_id": challenge.instance_id,
+            "setup_script": challenge.setup_script,
+            "guide": challenge.guide,
+            "type_data": {
+                "id": EC2ChallengeType.id,
+                "name": EC2ChallengeType.name,
+                "templates": EC2ChallengeType.templates,
+                "scripts": EC2ChallengeType.scripts,
+            },
+        }
+        return data
+
+    @staticmethod
+    def create(request):
+        """
+        This method is used to process the challenge creation request.
+        """
+        data = request.form or request.get_json()
+        
+        challenge = EC2Challenge(**data)
+        db.session.add(challenge)
+        db.session.commit()
+        return challenge
+
+    @staticmethod
+    def attempt(challenge, request):
+        """
+        This method is used to check whether a given input is right or wrong.
+        """
+        data = request.form or request.get_json()
+        submission = data["submission"].strip()
+        flags = Flags.query.filter_by(challenge_id=challenge.id).all()
+
+        for flag in flags:
+            if flag.content == submission:
+                return True, "Correct!"
+
+        return False, "Incorrect!"
+
+    @staticmethod
+    def solve(user, team, challenge, request):
+        """
+        This method is used to insert Solves for the admin panel.
+        """
+        challenge = EC2Challenge.query.filter_by(id=challenge.id).first()
+        data = request.form or request.get_json()
+        submission = data["submission"].strip()
+
+        solve = Solves(
+            user_id=user.id,
+            team_id=team.id if team else None,
+            challenge_id=challenge.id,
+            ip=get_ip(req=request),
+            provided=submission,
+        )
+        db.session.add(solve)
+
+        # Stop the instance when solved
+        ec2_config = EC2Config.query.filter_by(id=1).first()
+        tracker = EC2ChallengeTracker.query.filter_by(
+            challenge_id=challenge.id, owner_id=user.id
+        ).first()
+        
+        if tracker:
+            stop_instance(ec2_config, tracker.instance_id)
+            EC2ChallengeTracker.query.filter_by(instance_id=tracker.instance_id).delete()
+
+        db.session.commit()
+
+    @staticmethod
+    def fail(user, team, challenge, request):
+        """
+        This method is used to insert Fails for the admin panel.
+        """
+        data = request.form or request.get_json()
+        submission = data["submission"].strip()
+
+        wrong = Fails(
+            user_id=user.id,
+            team_id=team.id if team else None,
+            challenge_id=challenge.id,
+            ip=get_ip(request),
+            provided=submission,
+        )
+        db.session.add(wrong)
+        db.session.commit()
+
+
+# API Endpoints
+instance_namespace = Namespace("instance", description="Endpoint to interact with EC2 instances")
+
+
+@instance_namespace.route("", methods=["POST", "GET"])
+class InstanceAPI(Resource):
+    @authed_only
+    def get(self):
+        challenge_id = request.args.get("id")
+        challenge = EC2Challenge.query.filter_by(id=challenge_id).first()
+        if challenge is None:
+            return abort(403)
+        
+        ec2_config = EC2Config.query.filter_by(id=1).first()
+        session = get_current_user()
+
+        # Check if user already has a running instance
+        check = (
+            EC2ChallengeTracker.query.filter_by(owner_id=session.id)
+            .filter_by(challenge_id=challenge.id)
+            .first()
+        )
+
+        if check is not None:
+            return abort(403)
+
+        flag = "".join(random.choices(string.ascii_uppercase + string.digits, k=16))
+        success, result = create_instance_challenge(
+            ec2_config,
+            challenge.instance_id,
+            challenge_id,
+            flag,
+        )
+
+        if success:
+            return {"success": True, "data": []}
+        else:
+            return {"success": False, "data": result}
+
+
+instance_status_namespace = Namespace(
+    "instance_status",
+    description="Get the status of an EC2 instance.",
+)
+
+
+@instance_status_namespace.route("", methods=["GET"])
+class InstanceStatus(Resource):
+    @authed_only
+    def get(self):
+        ec2_config = EC2Config.query.filter_by(id=1).first()
+        
+        if not ec2_config:
+            return {"success": False, "data": [], "error": "No EC2 configuration found"}
+
+        ec2_client = boto3.client(
+            "ec2",
+            ec2_config.region,
+            aws_access_key_id=ec2_config.aws_access_key_id,
+            aws_secret_access_key=ec2_config.aws_secret_access_key,
+            aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        )
+
+        instance_id = request.args.get("instanceId")
+        
+        # URL decode the instance ID if it's encoded
+        if instance_id:
+            import urllib.parse
+            instance_id = urllib.parse.unquote(instance_id)
+
+        session = get_current_user()
+
+        challenge_tracker = EC2ChallengeTracker.query.filter_by(
+            instance_id=instance_id
+        ).first()
+
+        if not challenge_tracker:
+            print(f"DEBUG: No challenge tracker found for instanceId: {instance_id}")
+            return {"success": False, "data": [], "error": "No challenge tracker found"}
+
+        # Check for owner match with type conversion
+        owner_match = False
+        try:
+            # Try string comparison
+            if str(challenge_tracker.owner_id) == str(session.id):
+                owner_match = True
+            # Try integer comparison
+            elif int(challenge_tracker.owner_id) == int(session.id):
+                owner_match = True
+        except (ValueError, TypeError):
+            pass
+            
+        if not owner_match:
+            print(f"DEBUG: Owner mismatch - tracker owner: {challenge_tracker.owner_id}, session id: {session.id}")
+            
+            # Allow admins to access any instance
+            if is_admin():
+                print(f"DEBUG: Admin override - allowing access to instance owned by {challenge_tracker.owner_id}")
+            else:
+                return {"success": False, "data": [], "error": "Owner mismatch"}
+
+        challenge = EC2Challenge.query.filter_by(
+            id=challenge_tracker.challenge_id
+        ).first()
+
+        if not challenge:
+            return {"success": False, "data": [], "error": "Challenge not found"}
+
+        try:
+            # Get instance status
+            response = ec2_client.describe_instances(InstanceIds=[instance_id])
+            
+            if not response['Reservations']:
+                return {"success": False, "data": [], "error": "Instance not found"}
+            
+            instance = response['Reservations'][0]['Instances'][0]
+            state = instance['State']['Name']
+            public_ip = instance.get('PublicIpAddress', '')
+            
+            # Update the host field in the tracker if we got an IP and it's different
+            if public_ip and challenge_tracker.host != public_ip:
+                print(f"DEBUG: Updating host field from '{challenge_tracker.host}' to '{public_ip}'")
+                challenge_tracker.host = public_ip
+                db.session.commit()
+            
+            is_running = state == 'running'
+            
+            return {
+                "success": True,
+                "data": {"running": is_running, "state": state},
+                "public_ip": public_ip,
+            }
+            
+        except Exception as e:
+            print(f"DEBUG: Error getting instance status: {e}")
+            return {"success": False, "data": [], "error": str(e)}
+
+
+active_ec2_namespace = Namespace(
+    "ec2", description="Endpoint to retrieve User EC2 Instance Status"
+)
+
+
+@active_ec2_namespace.route("", methods=["POST", "GET"])
+class EC2Status(Resource):
+    """
+    The Purpose of this API is to retrieve a public JSON string of all EC2 instances
+    in use by the current team/user.
+    """
+
+    @authed_only
+    def get(self):
+        ec2_config = EC2Config.query.first()
+
+        session = get_current_user()
+        tracker = EC2ChallengeTracker.query.filter_by(owner_id=session.id)
+        data = list()
+        for i in tracker:
+            challenge = EC2Challenge.query.filter_by(id=i.challenge_id).first()
+
+            # Skip if challenge doesn't exist (might have been deleted)
+            if challenge is None:
+                continue
+
+            data.append(
+                {
+                    "id": i.id,
+                    "owner_id": i.owner_id,
+                    "challenge_id": i.challenge_id,
+                    "timestamp": i.timestamp,
+                    "revert_time": i.revert_time,
+                    "instance_id": i.instance_id,
+                }
+            )
+        return {"success": True, "data": data}
+
+
+ec2_config_namespace = Namespace("ec2_config", description="Endpoint to manage EC2 configuration")
+
+
+@ec2_config_namespace.route("", methods=["GET"])
+class EC2ConfigAPI(Resource):
+    @admins_only
+    def get(self):
+        ec2_config = EC2Config.query.filter_by(id=1).first()
+        
+        if not ec2_config:
+            return {"success": False, "data": {}, "error": "No EC2 configuration found"}
+
+        return {
+            "success": True,
+            "data": {
+                "region": ec2_config.region,
+                "aws_access_key_id": ec2_config.aws_access_key_id,
+                "aws_secret_access_key": ec2_config.aws_secret_access_key,
+                "available_instances": get_available_instances(ec2_config),
+            }
+        }
+
+
+@ec2_config_namespace.route("/status", methods=["GET"])
+class EC2ConfigStatusAPI(Resource):
+    @admins_only
+    def get(self):
+        ec2_config = EC2Config.query.filter_by(id=1).first()
+        
+        return {
+            "success": True,
+            "data": {
+                "config_valid": bool(ec2_config),
+                "has_credentials": bool(ec2_config and (ec2_config.aws_access_key_id or os.environ.get("AWS_ACCESS_KEY_ID")))
+            }
+        }
+
+
+def load(app):
+    upgrade(plugin_name="ec2_challenges")
+    
+    # Register API namespaces
+    CTFd_API_v1.add_namespace(instance_namespace, "/instance")
+    CTFd_API_v1.add_namespace(instance_status_namespace, "/instance_status")
+    CTFd_API_v1.add_namespace(active_ec2_namespace, "/ec2")
+    CTFd_API_v1.add_namespace(ec2_config_namespace, "/ec2_config")
+    
+    # Register assets
+    register_plugin_assets_directory(
+        app, base_path="/plugins/ec2_challenges/assets/"
+    )

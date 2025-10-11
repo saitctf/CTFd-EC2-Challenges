@@ -1,0 +1,82 @@
+{% extends "admin/challenges/update.html" %}
+{% block category %}
+<div class="form-group">
+    <label>
+        Category:<br>
+        <small class="form-text text-muted">Challenge Category</small>
+    </label>
+    <input type="text" class="form-control chal-category" name="category" value="{{ challenge.category }}">
+</div>
+<div class="form-group">
+    <label for="instance_id_select" id="instance_id_label">EC2 Instance ID:</label>
+    <select id="instance_id_select" name="instance_id" class="form-control" required>
+        <option value="">Select an EC2 instance...</option>
+    </select>
+    <small class="form-text text-muted">
+        Choose the EC2 instance to use for this challenge
+    </small>
+</div>
+<div class="form-group">
+    <label for="instance_type_select" id="instance_type_label">Instance Type:</label>
+    <select id="instance_type_select" name="instance_type" class="form-control">
+        <option value="t2.micro">t2.micro - 1 vCPU, 1 GB RAM</option>
+        <option value="t2.small">t2.small - 1 vCPU, 2 GB RAM</option>
+        <option value="t2.medium">t2.medium - 2 vCPU, 4 GB RAM</option>
+        <option value="t3.micro">t3.micro - 2 vCPU, 1 GB RAM</option>
+        <option value="t3.small">t3.small - 2 vCPU, 2 GB RAM</option>
+        <option value="t3.medium">t3.medium - 2 vCPU, 4 GB RAM</option>
+    </select>
+</div>
+<div class="form-group">
+    <label for="security_group">Security Group:</label>
+    <input type="text" class="form-control" name="security_group" value="{{ challenge.security_group }}">
+    <small class="form-text text-muted">
+        Security group ID for the EC2 instance
+    </small>
+</div>
+<div class="form-group">
+    <label for="key_name">Key Pair Name:</label>
+    <input type="text" class="form-control" name="key_name" value="{{ challenge.key_name }}">
+    <small class="form-text text-muted">
+        EC2 key pair name for SSH access
+    </small>
+</div>
+<div class="form-group">
+    <label for="setup_script">Setup Script:</label>
+    <textarea id="setup_script" class="form-control" name="setup_script" rows="10">{{ challenge.setup_script }}</textarea>
+    <small class="form-text text-muted">
+        Bash script to run when the instance starts (optional)
+    </small>
+</div>
+<div class="form-group">
+    <label for="guide">Guide:</label>
+    <textarea id="guide" class="form-control markdown" name="guide" rows="10">{{ challenge.guide }}</textarea>
+    <small class="form-text text-muted">
+        Markdown guide for solving the challenge
+    </small>
+</div>
+<div class="form-group">
+    <label for="auto_stop_time">Auto-stop Time (seconds):</label>
+    <input type="number" class="form-control" name="auto_stop_time" value="{{ challenge.auto_stop_time }}" min="300" max="7200">
+    <small class="form-text text-muted">
+        Time in seconds before the instance is automatically stopped (300-7200)
+    </small>
+</div>
+{% endblock %}
+{% block footer %}
+<script>
+    var EC2_INSTANCE_ID = '{{ challenge.instance_id }}';
+    var EC2_INSTANCE_TYPE = '{{ challenge.instance_type }}';
+    var EC2_SECURITY_GROUP = '{{ challenge.security_group }}';
+    var EC2_KEY_NAME = '{{ challenge.key_name }}';
+    var EC2_SETUP_SCRIPT = {{ challenge.setup_script | tojson }};
+    var EC2_GUIDE = {{ challenge.guide | tojson }};
+    var EC2_AUTO_STOP_TIME = {{ challenge.auto_stop_time }};
+    
+    // Set form values
+    document.querySelector("#instance_id_select").value = EC2_INSTANCE_ID;
+    document.querySelector("#instance_type_select").value = EC2_INSTANCE_TYPE;
+    document.querySelector("#setup_script").value = EC2_SETUP_SCRIPT;
+    document.querySelector("#guide").value = EC2_GUIDE;
+</script>
+{% endblock %}

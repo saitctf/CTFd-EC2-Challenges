@@ -1,0 +1,127 @@
+# CTFd EC2 Challenges Plugin
+
+A CTFd plugin that allows creating challenges using AWS EC2 instances. This plugin is inspired by the ECS Challenges plugin and provides similar functionality for EC2 instances.
+
+## Features
+
+- **EC2 Instance Management**: Start and stop EC2 instances for challenges
+- **Dynamic IP Display**: Automatically retrieve and display public IP addresses
+- **User Scripts**: Run custom setup scripts when instances start
+- **Auto-stop**: Automatically stop instances after a configurable time
+- **Admin Interface**: Configure AWS credentials and instance settings
+- **Challenge Tracking**: Track active instances per user/team
+
+## Installation
+
+1. Copy the `ec2_challenges` folder to your CTFd `plugins` directory
+2. Install required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Restart CTFd
+4. Configure AWS credentials in the admin panel
+
+## Configuration
+
+### AWS Setup
+
+1. Create an AWS IAM user with the following permissions:
+   - `ec2:DescribeInstances`
+   - `ec2:StartInstances`
+   - `ec2:StopInstances`
+   - `ec2:DescribeSecurityGroups`
+   - `ec2:DescribeKeyPairs`
+
+2. Configure AWS credentials in the CTFd admin panel:
+   - Go to Admin → EC2 Config
+   - Enter your AWS Access Key ID and Secret Access Key
+   - Select your AWS region
+   - Configure default instance settings
+
+### EC2 Instance Setup
+
+1. Create EC2 instances for your challenges
+2. Tag instances with `ctfd-challenge=true`
+3. Ensure instances are in "stopped" state
+4. Configure security groups to allow necessary access
+
+## Usage
+
+### Creating Challenges
+
+1. Go to Admin → Challenges → Create
+2. Select "EC2" as the challenge type
+3. Choose an EC2 instance from the dropdown
+4. Configure instance settings (type, security group, key pair)
+5. Add a setup script if needed
+6. Set auto-stop time (default: 30 minutes)
+7. Save the challenge
+
+### User Experience
+
+1. Users click "Start Challenge" to launch an EC2 instance
+2. A spinner shows while the instance starts
+3. Once running, the public IP is displayed
+4. Users can SSH into the instance to solve the challenge
+5. Instances automatically stop after the configured time
+
+## API Endpoints
+
+- `GET /api/v1/ec2` - Get active instances for current user
+- `GET /api/v1/instance?id=<challenge_id>` - Start an instance for a challenge
+- `GET /api/v1/instance_status?instanceId=<instance_id>` - Get instance status and IP
+- `GET /api/v1/ec2_config` - Get EC2 configuration (admin only)
+- `GET /api/v1/ec2_config/status` - Get configuration status (admin only)
+
+## Database Schema
+
+### EC2Config
+- AWS credentials and region
+- Default instance settings
+- Challenge configuration
+
+### EC2ChallengeTracker
+- Tracks active instances per user
+- Stores instance metadata
+- Manages auto-stop timing
+
+### EC2Challenge
+- Challenge-specific instance settings
+- Setup scripts and guides
+- Auto-stop configuration
+
+### EC2History
+- Instance usage history
+- Performance tracking
+
+## Security Considerations
+
+- AWS credentials are stored in the database (consider using IAM roles)
+- Instances should be properly secured with security groups
+- Consider using VPCs for network isolation
+- Monitor instance usage to prevent abuse
+
+## Troubleshooting
+
+### Common Issues
+
+1. **No instances available**: Check that instances are tagged and stopped
+2. **IP not displaying**: Verify security groups allow necessary access
+3. **Instance won't start**: Check AWS permissions and instance state
+4. **Setup script not running**: Ensure script is valid bash and has proper permissions
+
+### Debug Mode
+
+Enable debug logging by adding print statements to the Python code. Check CTFd logs for detailed error messages.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This plugin is released under the same license as CTFd.

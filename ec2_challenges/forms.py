@@ -85,3 +85,114 @@ class EC2ConfigForm(BaseForm):
     )
     
     submit = SubmitField("Save Configuration")
+
+
+class EC2ChallengeForm(BaseForm):
+    """Form for EC2 challenge creation/editing"""
+    
+    # Basic Challenge Fields
+    name = StringField(
+        "Challenge Name",
+        validators=[DataRequired(), Length(min=1, max=80)],
+        description="Name of the challenge"
+    )
+    
+    description = TextAreaField(
+        "Description",
+        validators=[DataRequired()],
+        description="Challenge description and instructions"
+    )
+    
+    value = IntegerField(
+        "Points",
+        validators=[DataRequired(), NumberRange(min=1)],
+        description="Points awarded for solving this challenge"
+    )
+    
+    category = StringField(
+        "Category",
+        validators=[DataRequired(), Length(min=1, max=80)],
+        description="Challenge category"
+    )
+    
+    # EC2 Configuration
+    ami_id = SelectField(
+        "AMI ID",
+        validators=[DataRequired()],
+        choices=[],  # Will be populated dynamically
+        description="Amazon Machine Image to use for this challenge"
+    )
+    
+    instance_type = SelectField(
+        "Instance Type",
+        validators=[DataRequired()],
+        choices=[
+            ("t2.micro", "t2.micro - 1 vCPU, 1 GB RAM"),
+            ("t2.small", "t2.small - 1 vCPU, 2 GB RAM"),
+            ("t2.medium", "t2.medium - 2 vCPU, 4 GB RAM"),
+            ("t3.micro", "t3.micro - 2 vCPU, 1 GB RAM"),
+            ("t3.small", "t3.small - 2 vCPU, 2 GB RAM"),
+            ("t3.medium", "t3.medium - 2 vCPU, 4 GB RAM"),
+        ],
+        description="EC2 instance type"
+    )
+    
+    subnet_id = SelectField(
+        "Subnet ID",
+        validators=[DataRequired()],
+        choices=[],  # Will be populated dynamically
+        description="Subnet where the instance will be launched"
+    )
+    
+    security_group = SelectField(
+        "Security Group",
+        validators=[DataRequired()],
+        choices=[],  # Will be populated dynamically
+        description="Security group for the instance"
+    )
+    
+    key_name = StringField(
+        "Key Pair Name",
+        validators=[DataRequired()],
+        description="EC2 key pair for SSH access"
+    )
+    
+    # Connection Configuration
+    scheme = SelectField(
+        "Connection Scheme (Optional)",
+        choices=[
+            ("", "None"),
+            ("http", "HTTP"),
+            ("https", "HTTPS"),
+            ("ssh", "SSH"),
+            ("ftp", "FTP"),
+            ("sftp", "SFTP"),
+        ],
+        description="Protocol scheme to prepend to the IP address"
+    )
+    
+    port = StringField(
+        "Port (Optional)",
+        validators=[Length(max=10)],
+        description="Port number to append to the IP address (e.g., 3000, 8080)"
+    )
+    
+    # Challenge Content
+    setup_script = TextAreaField(
+        "Setup Script (Optional)",
+        description="Bash script to run on instance startup"
+    )
+    
+    guide = TextAreaField(
+        "Challenge Guide (Optional)",
+        description="Additional instructions or hints for the challenge"
+    )
+    
+    auto_stop_time = IntegerField(
+        "Auto-stop Time (seconds)",
+        validators=[NumberRange(min=300, max=7200)],
+        default=1800,
+        description="Time before instance automatically stops (300-7200 seconds)"
+    )
+    
+    submit = SubmitField("Create Challenge")

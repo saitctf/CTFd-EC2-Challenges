@@ -57,6 +57,10 @@ class EC2Challenge(Challenges):
     setup_script = db.Column(db.Text, default="")
     guide = db.Column(db.Text, default="")
     
+    # Connection Configuration
+    scheme = db.Column(db.String(10), default="")  # http, https, ssh, etc.
+    port = db.Column(db.String(10), default="")    # port number
+    
     # Instance Management
     auto_stop_time = db.Column(db.Integer, default=1800)  # 30 minutes
 

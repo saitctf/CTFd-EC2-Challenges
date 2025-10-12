@@ -621,6 +621,8 @@ class EC2ChallengeType(BaseChallenge):
             "security_group": challenge.security_group,
             "key_name": challenge.key_name,
             "subnet_id": challenge.subnet_id,
+            "scheme": challenge.scheme,
+            "port": challenge.port,
             "setup_script": challenge.setup_script,
             "guide": challenge.guide,
             "auto_stop_time": challenge.auto_stop_time,
@@ -649,6 +651,19 @@ class EC2ChallengeType(BaseChallenge):
                 if field not in data or not data[field]:
                     print(f"DEBUG: Missing required field: {field}")
                     raise ValueError(f"Missing required field: {field}")
+            
+            # Handle optional fields with defaults
+            optional_fields = {
+                'scheme': '',
+                'port': '',
+                'setup_script': '',
+                'guide': '',
+                'auto_stop_time': 1800
+            }
+            
+            for field, default_value in optional_fields.items():
+                if field not in data:
+                    data[field] = default_value
             
             print(f"DEBUG: Creating EC2Challenge object")
             challenge = EC2Challenge(**data)
@@ -850,10 +865,26 @@ class InstanceStatus(Resource):
             state = instance['State']['Name']
             public_ip = instance.get('PublicIpAddress', '')
             
+            # Format the IP address with scheme and port if configured
+            formatted_ip = public_ip
+            if public_ip:
+                # Add scheme if configured
+                if challenge.scheme:
+                    formatted_ip = f"{challenge.scheme}://{public_ip}"
+                
+                # Add port if configured
+                if challenge.port:
+                    if challenge.scheme:
+                        # If scheme is present, add port after the IP
+                        formatted_ip = f"{challenge.scheme}://{public_ip}:{challenge.port}"
+                    else:
+                        # If no scheme, just add port
+                        formatted_ip = f"{public_ip}:{challenge.port}"
+            
             # Update the host field in the tracker if we got an IP and it's different
-            if public_ip and challenge_tracker.host != public_ip:
-                print(f"DEBUG: Updating host field from '{challenge_tracker.host}' to '{public_ip}'")
-                challenge_tracker.host = public_ip
+            if public_ip and challenge_tracker.host != formatted_ip:
+                print(f"DEBUG: Updating host field from '{challenge_tracker.host}' to '{formatted_ip}'")
+                challenge_tracker.host = formatted_ip
                 db.session.commit()
             
             is_running = state == 'running'
@@ -861,7 +892,7 @@ class InstanceStatus(Resource):
             return {
                 "success": True,
                 "data": {"running": is_running, "state": state},
-                "public_ip": public_ip,
+                "public_ip": formatted_ip,
             }
             
         except Exception as e:

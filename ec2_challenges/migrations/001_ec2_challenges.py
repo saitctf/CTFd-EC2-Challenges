@@ -65,6 +65,8 @@ def upgrade(op=None):
         sa.Column('subnet_id', sa.String(length=128), nullable=True),
         sa.Column('setup_script', sa.Text(), nullable=True),
         sa.Column('guide', sa.Text(), nullable=True),
+        sa.Column('scheme', sa.String(length=10), nullable=True),
+        sa.Column('port', sa.String(length=10), nullable=True),
         sa.Column('auto_stop_time', sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(['id'], ['challenges.id'], ),
         sa.PrimaryKeyConstraint('id')

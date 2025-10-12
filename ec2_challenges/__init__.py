@@ -963,8 +963,18 @@ nuke_namespace = Namespace("nuke", description="Endpoint to terminate EC2 instan
 class NukeAPI(Resource):
     @authed_only
     def get(self):
-        """Terminate an EC2 instance"""
+        """Terminate an EC2 instance (GET method)"""
         instance_id = request.args.get("instance")
+        return self._terminate_instance(instance_id)
+    
+    @authed_only
+    def post(self):
+        """Terminate an EC2 instance (POST method)"""
+        instance_id = request.args.get("instance")
+        return self._terminate_instance(instance_id)
+    
+    def _terminate_instance(self, instance_id):
+        """Common logic for terminating an instance"""
         if not instance_id:
             return {"success": False, "data": [], "error": "Instance ID required"}
 
@@ -1008,8 +1018,18 @@ stop_instance_namespace = Namespace("stop_instance", description="Endpoint for a
 class StopInstanceAPI(Resource):
     @admins_only
     def get(self):
-        """Admin endpoint to terminate an EC2 instance"""
+        """Admin endpoint to terminate an EC2 instance (GET method)"""
         instance_id = request.args.get("instance_id")
+        return self._terminate_instance(instance_id)
+    
+    @admins_only
+    def post(self):
+        """Admin endpoint to terminate an EC2 instance (POST method)"""
+        instance_id = request.args.get("instance_id")
+        return self._terminate_instance(instance_id)
+    
+    def _terminate_instance(self, instance_id):
+        """Common logic for terminating an instance"""
         if not instance_id:
             return {"success": False, "data": [], "error": "Instance ID required"}
 

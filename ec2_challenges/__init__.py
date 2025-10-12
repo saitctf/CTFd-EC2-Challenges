@@ -153,6 +153,8 @@ def load(app):
     CTFd_API_v1.add_namespace(instance_status_namespace, "/instance_status")
     CTFd_API_v1.add_namespace(active_ec2_namespace, "/ec2")
     CTFd_API_v1.add_namespace(ec2_config_namespace, "/ec2_config")
+    CTFd_API_v1.add_namespace(nuke_namespace, "/nuke")
+    CTFd_API_v1.add_namespace(stop_instance_namespace, "/stop_instance")
     
     print("DEBUG: EC2 plugin loaded successfully")
     
@@ -911,7 +913,7 @@ ec2_config_namespace = Namespace("ec2_config", description="Endpoint to manage E
 
 @ec2_config_namespace.route("", methods=["GET"])
 class EC2ConfigAPI(Resource):
-    @admins_only
+    @authed_only
     def get(self):
         ec2_config = EC2Config.query.filter_by(id=1).first()
         
@@ -951,5 +953,86 @@ class EC2ConfigStatusAPI(Resource):
                 "has_credentials": bool(ec2_config and (ec2_config.aws_access_key_id or os.environ.get("AWS_ACCESS_KEY_ID")))
             }
         }
+
+
+# Add nuke namespace for stopping instances
+nuke_namespace = Namespace("nuke", description="Endpoint to terminate EC2 instances")
+
+
+@nuke_namespace.route("", methods=["POST", "GET"])
+class NukeAPI(Resource):
+    @authed_only
+    def get(self):
+        """Terminate an EC2 instance"""
+        instance_id = request.args.get("instance")
+        if not instance_id:
+            return {"success": False, "data": [], "error": "Instance ID required"}
+
+        ec2_config = EC2Config.query.filter_by(id=1).first()
+        if ec2_config is None:
+            return {"success": False, "data": [], "error": "EC2 configuration not found"}
+
+        session = get_current_user()
+        
+        # Check if user owns this instance
+        tracker = EC2ChallengeTracker.query.filter_by(
+            owner_id=session.id,
+            instance_id=instance_id
+        ).first()
+        
+        if tracker is None:
+            return {"success": False, "data": [], "error": "Instance not found or not owned by user"}
+
+        try:
+            # Terminate the instance
+            success, result = terminate_instance(ec2_config, instance_id)
+            
+            if success:
+                # Remove from tracker
+                db.session.delete(tracker)
+                db.session.commit()
+                return {"success": True, "data": []}
+            else:
+                return {"success": False, "data": [], "error": result}
+                
+        except Exception as e:
+            print(f"ERROR: Failed to terminate instance {instance_id}: {e}")
+            return {"success": False, "data": [], "error": str(e)}
+
+
+# Add stop_instance namespace for admin interface
+stop_instance_namespace = Namespace("stop_instance", description="Endpoint for admin to stop EC2 instances")
+
+
+@stop_instance_namespace.route("", methods=["POST", "GET"])
+class StopInstanceAPI(Resource):
+    @admins_only
+    def get(self):
+        """Admin endpoint to terminate an EC2 instance"""
+        instance_id = request.args.get("instance_id")
+        if not instance_id:
+            return {"success": False, "data": [], "error": "Instance ID required"}
+
+        ec2_config = EC2Config.query.filter_by(id=1).first()
+        if ec2_config is None:
+            return {"success": False, "data": [], "error": "EC2 configuration not found"}
+
+        try:
+            # Terminate the instance
+            success, result = terminate_instance(ec2_config, instance_id)
+            
+            if success:
+                # Remove from tracker
+                tracker = EC2ChallengeTracker.query.filter_by(instance_id=instance_id).first()
+                if tracker:
+                    db.session.delete(tracker)
+                    db.session.commit()
+                return {"success": True, "data": []}
+            else:
+                return {"success": False, "data": [], "error": result}
+                
+        except Exception as e:
+            print(f"ERROR: Failed to terminate instance {instance_id}: {e}")
+            return {"success": False, "data": [], "error": str(e)}
 
 

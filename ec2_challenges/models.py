@@ -5,7 +5,7 @@ class EC2Config(db.Model):
     """
     EC2 Config Model. This model stores the config for AWS connections and EC2 instance config.
     """
-    __tablename__ = "ec2_config"
+    __tablename__ = "ec2config"
 
     id = db.Column(db.Integer, primary_key=True)
     
@@ -29,7 +29,7 @@ class EC2ChallengeTracker(db.Model):
     """
     EC2 Instance Tracker. This model stores the users/teams active EC2 instances.
     """
-    __tablename__ = "ec2_challenge_tracker"
+    __tablename__ = "ec2tracker"
 
     id = db.Column(db.Integer, primary_key=True)
     owner_id = db.Column("owner_id", db.String(64), index=True)
@@ -43,7 +43,7 @@ class EC2ChallengeTracker(db.Model):
 
 class EC2Challenge(Challenges):
     __mapper_args__ = {"polymorphic_identity": "ec2"}
-    __tablename__ = "ec2_challenge"
+    __tablename__ = "ec2challenge"
     id = db.Column(None, db.ForeignKey("challenges.id"), primary_key=True)
     
     # AMI Configuration
@@ -62,7 +62,7 @@ class EC2Challenge(Challenges):
 
 
 class EC2History(db.Model):
-    __tablename__ = "ec2_history"
+    __tablename__ = "ec2history"
     id = db.Column(db.Integer, primary_key=True, index=True)
     user_id = db.Column(db.Integer)
     instance_id = db.Column(db.String(128))

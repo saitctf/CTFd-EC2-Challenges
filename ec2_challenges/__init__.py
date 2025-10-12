@@ -631,12 +631,35 @@ class EC2ChallengeType(BaseChallenge):
         """
         This method is used to process the challenge creation request.
         """
-        data = request.form or request.get_json()
-        
-        challenge = EC2Challenge(**data)
-        db.session.add(challenge)
-        db.session.commit()
-        return challenge
+        try:
+            print(f"DEBUG: EC2 Challenge creation started")
+            data = request.form or request.get_json()
+            print(f"DEBUG: Received data: {data}")
+            
+            # Validate required fields
+            required_fields = ['ami_id', 'subnet_id', 'instance_type', 'security_group', 'key_name']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    print(f"DEBUG: Missing required field: {field}")
+                    raise ValueError(f"Missing required field: {field}")
+            
+            print(f"DEBUG: Creating EC2Challenge object")
+            challenge = EC2Challenge(**data)
+            print(f"DEBUG: EC2Challenge object created: {challenge}")
+            
+            print(f"DEBUG: Adding to database session")
+            db.session.add(challenge)
+            print(f"DEBUG: Committing to database")
+            db.session.commit()
+            print(f"DEBUG: Challenge created successfully with ID: {challenge.id}")
+            return challenge
+            
+        except Exception as e:
+            print(f"DEBUG: Error creating EC2 challenge: {e}")
+            import traceback
+            traceback.print_exc()
+            db.session.rollback()
+            raise
 
     @staticmethod
     def attempt(challenge, request):

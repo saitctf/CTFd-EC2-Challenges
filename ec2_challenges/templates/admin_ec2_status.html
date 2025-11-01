@@ -148,18 +148,35 @@ function loadInstanceHistory() {
 
 function stopInstance(instanceId) {
     if (confirm('Are you sure you want to nuke this instance?')) {
-        fetch(`/api/v1/ec2_stop_instance?instance_id=${instanceId}`, {method: 'POST'})
-            .then(response => response.json())
+        // Use GET method to avoid CSRF issues (like ECS plugin does)
+        fetch(`/api/v1/ec2_stop_instance?instance_id=${instanceId}`, {
+            method: 'GET',
+            credentials: 'same-origin'
+        })
+            .then(response => {
+                // Check if response is OK before trying to parse JSON
+                if (!response.ok) {
+                    // If not OK, try to get error message
+                    return response.text().then(text => {
+                        try {
+                            return JSON.parse(text);
+                        } catch {
+                            throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+                        }
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     loadActiveInstances();
                 } else {
-                    alert('Failed to nuke instance: ' + (data.error || 'Unknown error'));
+                    alert('Failed to nuke instance: ' + (data.error || data.message || 'Unknown error'));
                 }
             })
             .catch(error => {
                 console.error('Error nuking instance:', error);
-                alert('Error nuking instance');
+                alert('Error nuking instance: ' + error.message);
             });
     }
 }

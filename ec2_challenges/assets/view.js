@@ -215,8 +215,26 @@ function show_final_status(challenge, taskItem, publicIP) {
 function stop_instance(challenge, instance_id, refresh = true) {
     running = false;
     document.querySelector('#ec2_container').innerHTML = '<div class="text-center"><i class="fas fa-circle-notch fa-spin fa-1x"></i></div>';
-    fetch(`/api/v1/ec2_nuke?${new URLSearchParams({ 'instance': instance_id })}`, {method: 'POST'})
-        .then(result => result.json())
+    fetch(`/api/v1/ec2_nuke?${new URLSearchParams({ 'instance': instance_id })}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+        .then(result => {
+            if (!result.ok) {
+                // If response is not OK, try to get error message
+                return result.text().then(text => {
+                    try {
+                        return JSON.parse(text);
+                    } catch {
+                        throw new Error(`HTTP ${result.status}: ${text.substring(0, 100)}`);
+                    }
+                });
+            }
+            return result.json();
+        })
         .then(data => {
             if (data.success) {
                 if (refresh) {

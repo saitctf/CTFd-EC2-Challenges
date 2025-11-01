@@ -157,6 +157,7 @@ def load(app):
     CTFd_API_v1.add_namespace(stop_instance_namespace, "/ec2_stop_instance")
     
     print("DEBUG: EC2 plugin loaded successfully")
+    print("DEBUG: Registered namespaces: /instance, /instance_status, /ec2, /ec2_config, /ec2_nuke, /ec2_stop_instance")
     
     # Initialize EC2 configuration from environment variables
     try:
@@ -1002,7 +1003,7 @@ class EC2ConfigStatusAPI(Resource):
 
 
 # Add nuke namespace for stopping instances
-nuke_namespace = Namespace("nuke", description="Endpoint to terminate EC2 instances")
+nuke_namespace = Namespace("ec2_nuke", description="Endpoint to terminate EC2 instances")
 
 
 @nuke_namespace.route("", methods=["POST", "GET"])
@@ -1010,17 +1011,20 @@ class NukeAPI(Resource):
     @authed_only
     def get(self):
         """Terminate an EC2 instance (GET method)"""
+        print(f"DEBUG: NukeAPI.get called with instance_id: {request.args.get('instance')}")
         instance_id = request.args.get("instance")
         return self._terminate_instance(instance_id)
     
     @authed_only
     def post(self):
         """Terminate an EC2 instance (POST method)"""
+        print(f"DEBUG: NukeAPI.post called with instance_id: {request.args.get('instance')}")
         instance_id = request.args.get("instance")
         return self._terminate_instance(instance_id)
     
     def _terminate_instance(self, instance_id):
         """Common logic for terminating an instance"""
+        print(f"DEBUG: _terminate_instance called with instance_id: {instance_id}")
         if not instance_id:
             return {"success": False, "data": [], "error": "Instance ID required"}
 
@@ -1029,6 +1033,7 @@ class NukeAPI(Resource):
             return {"success": False, "data": [], "error": "EC2 configuration not found"}
 
         session = get_current_user()
+        print(f"DEBUG: Current user ID: {session.id}")
         
         # Check if user owns this instance
         tracker = EC2ChallengeTracker.query.filter_by(
@@ -1036,6 +1041,7 @@ class NukeAPI(Resource):
             instance_id=instance_id
         ).first()
         
+        print(f"DEBUG: Tracker found: {tracker is not None}")
         if tracker is None:
             return {"success": False, "data": [], "error": "Instance not found or not owned by user"}
 
@@ -1057,7 +1063,7 @@ class NukeAPI(Resource):
 
 
 # Add stop_instance namespace for admin interface
-stop_instance_namespace = Namespace("stop_instance", description="Endpoint for admin to stop EC2 instances")
+stop_instance_namespace = Namespace("ec2_stop_instance", description="Endpoint for admin to stop EC2 instances")
 
 
 @stop_instance_namespace.route("", methods=["POST", "GET"])

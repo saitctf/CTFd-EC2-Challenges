@@ -215,11 +215,28 @@ function show_final_status(challenge, taskItem, publicIP) {
 function stop_instance(challenge, instance_id, refresh = true) {
     running = false;
     document.querySelector('#ec2_container').innerHTML = '<div class="text-center"><i class="fas fa-circle-notch fa-spin fa-1x"></i></div>';
-    fetch(`/api/v1/nuke?${new URLSearchParams({ 'instance': instance_id })}`).then(result => {
-        if (refresh) {
-            get_ec2_status(challenge);
-        }
-    })
+    fetch(`/api/v1/ec2_nuke?${new URLSearchParams({ 'instance': instance_id })}`, {method: 'POST'})
+        .then(result => result.json())
+        .then(data => {
+            if (data.success) {
+                if (refresh) {
+                    get_ec2_status(challenge);
+                }
+            } else {
+                console.error('Failed to stop instance:', data.error || 'Unknown error');
+                alert('Failed to stop instance: ' + (data.error || 'Unknown error'));
+                if (refresh) {
+                    get_ec2_status(challenge);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error stopping instance:', error);
+            alert('Error stopping instance: ' + error.message);
+            if (refresh) {
+                get_ec2_status(challenge);
+            }
+        });
 }
 
 var modal =

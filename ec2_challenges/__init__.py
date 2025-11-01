@@ -153,8 +153,8 @@ def load(app):
     CTFd_API_v1.add_namespace(instance_status_namespace, "/instance_status")
     CTFd_API_v1.add_namespace(active_ec2_namespace, "/ec2")
     CTFd_API_v1.add_namespace(ec2_config_namespace, "/ec2_config")
-    CTFd_API_v1.add_namespace(nuke_namespace, "/nuke")
-    CTFd_API_v1.add_namespace(stop_instance_namespace, "/stop_instance")
+    CTFd_API_v1.add_namespace(nuke_namespace, "/ec2_nuke")
+    CTFd_API_v1.add_namespace(stop_instance_namespace, "/ec2_stop_instance")
     
     print("DEBUG: EC2 plugin loaded successfully")
     

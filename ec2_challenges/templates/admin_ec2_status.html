@@ -94,7 +94,7 @@ function loadActiveInstances() {
                             <td>${startTime}</td>
                             <td>
                                 <button class="btn btn-sm btn-danger" onclick="stopInstance('${instance.instance_id}')">
-                                    <i class="fas fa-stop"></i> Stop
+                                    <i class="fas fa-bomb"></i> Nuke
                                 </button>
                             </td>
                         </tr>`;
@@ -147,19 +147,19 @@ function loadInstanceHistory() {
 }
 
 function stopInstance(instanceId) {
-    if (confirm('Are you sure you want to stop this instance?')) {
+    if (confirm('Are you sure you want to nuke this instance?')) {
         fetch(`/api/v1/ec2_stop_instance?instance_id=${instanceId}`, {method: 'POST'})
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     loadActiveInstances();
                 } else {
-                    alert('Failed to stop instance: ' + (data.error || 'Unknown error'));
+                    alert('Failed to nuke instance: ' + (data.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.error('Error stopping instance:', error);
-                alert('Error stopping instance');
+                console.error('Error nuking instance:', error);
+                alert('Error nuking instance');
             });
     }
 }

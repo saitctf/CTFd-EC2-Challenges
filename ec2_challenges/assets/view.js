@@ -69,14 +69,7 @@ function get_ec2_status(challenge) {
                                     const publicIP = result['public_ip'] || 'N/A';
                                     connect_section.innerHTML = `<span class="text-success"><strong>IP: ${publicIP}</strong></span>`;
                                     clearInterval(status_check_interval);
-                                    revert_section.innerHTML = `
-                                        <a onclick="stop_instance('${item.challenge_id}', '${item.instance_id}', true);" class='btn btn-warning mr-2'>
-                                            <small style='color:white;'><i style='margin-right: 5px;' class="fas fa-stop"></i>Stop Challenge</small>
-                                        </a>
-                                        <a onclick="start_instance('${item.challenge_id}');" class='btn btn-danger'>
-                                            <small style='color:white;'><i style='margin-right: 5px;' class="fas fa-redo"></i>Reset Challenge</small>
-                                        </a>
-                                    `;
+                                    revert_section.innerHTML = `<a onclick="start_instance('${item.challenge_id}');" class='btn btn-danger'><small style='color:white;'><i style='margin-right: 5px;' class="fas fa-redo"></i>Reset Challenge</small></a>`;
                                 } else {
                                     connect_section.innerHTML = `<span>Your instance is starting, this shouldn't take longer than a minute and a half</span><br><br><br><span>${funny_words[deltaSecond % funny_words.length]}</span>`;
                                 }
@@ -215,16 +208,9 @@ function show_final_status(challenge, taskItem, publicIP) {
     const revert_section = document.querySelector(`#${containerId}_revert_container`);
     const connect_section = document.querySelector(`#${containerId}_connect_to_container`);
     
-    // Show the IP and buttons
+    // Show the IP and reset button
     connect_section.innerHTML = `<span class="text-success"><strong>IP: ${publicIP}</strong></span>`;
-    revert_section.innerHTML = `
-        <a onclick="stop_instance('${challenge}', '${taskItem.instance_id}', true);" class='btn btn-warning mr-2'>
-            <small style='color:white;'><i style='margin-right: 5px;' class="fas fa-stop"></i>Stop Challenge</small>
-        </a>
-        <a onclick="start_instance('${challenge}');" class='btn btn-danger'>
-            <small style='color:white;'><i style='margin-right: 5px;' class="fas fa-redo"></i>Reset Challenge</small>
-        </a>
-    `;
+    revert_section.innerHTML = `<a onclick="start_instance('${challenge}');" class='btn btn-danger'><small style='color:white;'><i style='margin-right: 5px;' class="fas fa-redo"></i>Reset Challenge</small></a>`;
 }
 
 function stop_instance(challenge, instance_id, refresh = true) {

@@ -770,8 +770,23 @@ class InstanceAPI(Resource):
             .first()
         )
 
+        # If an instance exists, handle reset logic (terminate old instance and delete tracker)
         if check is not None:
-            return abort(403)
+            # Check if instance has been running for less than 30 seconds (prevent rapid restarts)
+            current_time = unix_time(datetime.utcnow())
+            if (current_time - check.timestamp) < 30:
+                return abort(403)
+            
+            # Instance is old enough to reset - terminate it and delete the tracker
+            try:
+                terminate_instance(ec2_config, check.instance_id)
+                db.session.delete(check)
+                db.session.commit()
+            except Exception as e:
+                print(f"ERROR: Failed to terminate old instance during reset: {e}")
+                # Continue anyway to allow starting a new instance
+                db.session.delete(check)
+                db.session.commit()
 
         flag = "".join(random.choices(string.ascii_uppercase + string.digits, k=16))
         success, result = create_instance_challenge(

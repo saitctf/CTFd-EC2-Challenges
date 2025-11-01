@@ -131,7 +131,7 @@ function wait_for_ip_and_show_status(challenge) {
             'Killing time...',
             'Killing in the name of...'
         ];
-        const messageIndex = Math.floor(attempts / 3) % statusMessages.length;
+        const messageIndex = Math.min(Math.floor(attempts / 3), statusMessages.length - 1);
         document.querySelector('#ec2_container').innerHTML = 
             `<div class="text-center"><i class="fas fa-circle-notch fa-spin fa-1x"></i><br><small>${statusMessages[messageIndex]}</small></div>`;
         

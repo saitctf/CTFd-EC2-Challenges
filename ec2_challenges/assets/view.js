@@ -92,8 +92,23 @@ function get_ec2_status(challenge) {
 
 function start_instance(challenge) {
     running = false;
-    document.querySelector('#ec2_container').innerHTML = '<div class="text-center"><i class="fas fa-circle-notch fa-spin fa-1x"></i><br><small>Starting challenge...</small></div>';
+    
+    // Start showing cycling messages immediately while API call is in progress
+    let apiAttempts = 0;
+    const apiStatusMessages = [
+        'Starting challenge...',
+        'Provisioning VM challenge...',
+        'Doing stuff and things...',
+        'Injecting stuff...'
+    ];
+    const apiStatusInterval = setInterval(() => {
+        apiAttempts++;
+        const messageIndex = Math.min(Math.floor(apiAttempts / 2), apiStatusMessages.length - 1);
+        document.querySelector('#ec2_container').innerHTML = `<div class="text-center"><i class="fas fa-circle-notch fa-spin fa-1x"></i><br><small>${apiStatusMessages[messageIndex]}</small></div>`;
+    }, 1000);
+    
     fetch(`/api/v1/instance?${new URLSearchParams({ 'id': challenge })}`).then(result => result.json()).then(result => {
+        clearInterval(apiStatusInterval); // Stop the cycling messages
         if (!result.success) {
             if (result.data[0].indexOf("running") > 0) {
                 ezq({ title: "Challenge already running", body: `You already have a challenge already running (${result.data[1]})<br><br>Would you like to stop that challenge and start this one?` }).then(() => {
@@ -109,6 +124,10 @@ function start_instance(challenge) {
             // Instance started successfully, now wait for IP
             wait_for_ip_and_show_status(challenge);
         }
+    }).catch(error => {
+        clearInterval(apiStatusInterval); // Stop the cycling messages on error
+        console.error('Error starting instance:', error);
+        document.querySelector('#ec2_container').innerHTML = '<div class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i><br><small>Error starting challenge</small></div>';
     });
 }
 

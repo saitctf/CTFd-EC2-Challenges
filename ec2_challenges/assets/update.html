@@ -37,10 +37,12 @@
     </select>
 </div>
 <div class="form-group">
-    <label for="security_group">Security Group:</label>
-    <input type="text" class="form-control" name="security_group" value="{{ challenge.security_group }}">
+    <label for="security_group_select" id="security_group_label">Security Group:</label>
+    <select id="security_group_select" name="security_group" class="form-control" required>
+        <option value="">Select a security group...</option>
+    </select>
     <small class="form-text text-muted">
-        Security group ID for the EC2 instance
+        Choose the security group for the EC2 instance
     </small>
 </div>
 <div class="form-group">
@@ -95,6 +97,7 @@
 {% endblock %}
 {% block footer %}
 <script>
+    // Define current values for the update.js script
     var EC2_AMI_ID = '{{ challenge.ami_id }}';
     var EC2_INSTANCE_TYPE = '{{ challenge.instance_type }}';
     var EC2_SECURITY_GROUP = '{{ challenge.security_group }}';
@@ -106,13 +109,36 @@
     var EC2_GUIDE = {{ challenge.guide | tojson }};
     var EC2_AUTO_STOP_TIME = {{ challenge.auto_stop_time }};
     
-    // Set form values
-    document.querySelector("#ami_id_select").value = EC2_AMI_ID;
-    document.querySelector("#subnet_id_select").value = EC2_SUBNET_ID;
-    document.querySelector("#instance_type_select").value = EC2_INSTANCE_TYPE;
-    document.querySelector("#scheme").value = EC2_SCHEME;
-    document.querySelector("#port").value = EC2_PORT;
-    document.querySelector("#setup_script").value = EC2_SETUP_SCRIPT;
-    document.querySelector("#guide").value = EC2_GUIDE;
+    // Set form values (these don't depend on API calls) - using vanilla JS
+    document.addEventListener('DOMContentLoaded', function() {
+        var instanceTypeSelect = document.querySelector("#instance_type_select");
+        if (instanceTypeSelect && EC2_INSTANCE_TYPE) {
+            instanceTypeSelect.value = EC2_INSTANCE_TYPE;
+        }
+        var schemeSelect = document.querySelector("#scheme");
+        if (schemeSelect && EC2_SCHEME) {
+            schemeSelect.value = EC2_SCHEME;
+        }
+        var portInput = document.querySelector("#port");
+        if (portInput && EC2_PORT) {
+            portInput.value = EC2_PORT;
+        }
+        var setupScriptTextarea = document.querySelector("#setup_script");
+        if (setupScriptTextarea && EC2_SETUP_SCRIPT) {
+            setupScriptTextarea.value = EC2_SETUP_SCRIPT;
+        }
+        var guideTextarea = document.querySelector("#guide");
+        if (guideTextarea && EC2_GUIDE) {
+            guideTextarea.value = EC2_GUIDE;
+        }
+        var keyNameInput = document.querySelector("#key_name");
+        if (keyNameInput && EC2_KEY_NAME) {
+            keyNameInput.value = EC2_KEY_NAME;
+        }
+        var autoStopTimeInput = document.querySelector("input[name='auto_stop_time']");
+        if (autoStopTimeInput && EC2_AUTO_STOP_TIME) {
+            autoStopTimeInput.value = EC2_AUTO_STOP_TIME;
+        }
+    });
 </script>
 {% endblock %}
